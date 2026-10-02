@@ -1,0 +1,7 @@
+# GitHub Issue 模板配置
+
+blank_issues_enabled: false
+contact_links:
+  - name: 技术讨论
+    url: https://github.com/yourusername/SkyOps/discussions
+    about: 功能讨论、技术方案请使用 Discussions
