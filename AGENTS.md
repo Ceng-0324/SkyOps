@@ -108,7 +108,7 @@ frontend/
 
 ### 规划中依赖（Planned, Not Yet Approved）
 
-以下依赖在 [TECHNICAL_PROPOSAL.md](./TECHNICAL_PROPOSAL.md) 规划中，需组长批准后才能添加：
+以下依赖在 [TECHNICAL_PROPOSAL.md](./TECHNICAL_PROPOSAL.md) 规划中，需人类决策后才能添加：
 
 - NumPy, SciPy, Open3D（点云处理）
 - PyTorch, PyTorch Geometric（深度学习和图推理）
@@ -161,10 +161,10 @@ docs: update AGENTS.md with quick commands
 
 1. 从 `main` 创建功能分支
 2. 本地开发并提交（每完成一个模块改动就提交）
-3. 推送分支（由组长执行 `git push`）
+3. 推送分支
 4. 创建 PR，填写模板
 5. 等待 CI 通过 + 代码审查
-6. 获得 approve 后由组长合并
+6. 获得 approve 后合并
 
 ---
 
@@ -303,7 +303,7 @@ uv run pytest -v           # 详细输出
 
 ### 🔴 红灯 - 停止并询问（Stop and Ask）
 
-以下场景必须停止并等待组长明确批准：
+以下场景必须停止并等待人类明确决策：
 
 - **破坏性 API 变更**：修改已有 API 的请求/响应格式
 - **新增核心依赖**：添加 `pyproject.toml` 或 `package.json` 中未列出的依赖
@@ -397,7 +397,7 @@ uv run pytest -v           # 详细输出
 - [ ] 格式化：`uv run ruff format .`（后端）
 - [ ] 构建成功：`npm run build`（前端，如有前端改动）
 - [ ] 代码已提交（每完成一个模块改动创建本地提交）
-- [ ] 如是破坏性变更：已获得组长批准
+- [ ] 如是破坏性变更：已获得人类批准
 
 **不要**在完成以下步骤后停下来等待"继续"指令：
 - ❌ "代码已写完，要我继续吗？"
@@ -421,11 +421,9 @@ git commit -m "feat(core): add point cloud processing module"
 # 不要在 main 分支直接提交（创建功能分支）
 ```
 
-### 推送由组长执行
+### 推送流程
 
-AI 代理**只创建本地提交**，不执行 `git push`。
-
-组长会统一审查本地提交后推送。
+AI 代理创建本地提交后，人类审查并执行推送。
 
 ---
 
