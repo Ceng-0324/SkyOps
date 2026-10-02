@@ -15,6 +15,10 @@ from app.core.config import DEFAULT_POINT_CLOUD_MAX_BYTES, DEFAULT_POINT_CLOUD_M
 from app.core.models.common import DataSourceType
 from app.core.models.point_cloud import PointCloud
 
+# Open3D 0.20.0 的 binary / binary_compressed 坐标转换只支持这些组合。
+# 不支持的宽度会被静默读成零，点数和有限性检查无法识别这种数据损坏。
+_BINARY_COORDINATE_SIZES = {"F": {4}, "I": {1, 2, 4}, "U": {1, 2, 4}}
+
 
 class PointCloudLoadError(Exception):
     """PCD 格式或文件类型不合法。"""
@@ -161,6 +165,14 @@ def _validate_pcd(data: bytes, byte_limit: int, point_limit: int) -> int:
             raise PointCloudTooLargeError("Decoded point cloud exceeds the byte limit")
         body = stream.read()
         encoding = header["DATA"][0]
+        if encoding in {"binary", "binary_compressed"}:
+            for axis in ("x", "y", "z"):
+                index = fields.index(axis)
+                if sizes[index] not in _BINARY_COORDINATE_SIZES[types[index]]:
+                    raise PointCloudLoadError(
+                        f"Unsupported {encoding} coordinate format: "
+                        f"{axis}={types[index]}{sizes[index]}"
+                    )
         if encoding == "ascii":
             rows = [row.split() for row in body.splitlines() if row.strip()]
             if len(rows) != count or any(len(row) != sum(counts) for row in rows):
