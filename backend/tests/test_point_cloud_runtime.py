@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.point_cloud import loader
-from app.main import app
 
 
 def test_application_starts_without_open3d() -> None:
@@ -30,18 +29,19 @@ assert TestClient(app).get("/health").status_code == 200
 
 @pytest.mark.parametrize("error_type", [ImportError, OSError])
 def test_missing_native_runtime_returns_503(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]
+    pcd_file: Path,
+    point_cloud_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
 ) -> None:
     """加载失败必须显式报告不可用，不返回成功空结果。"""
-    path = tmp_path / "scene.pcd"
-    path.write_text("synthetic fixture", encoding="utf-8")
 
     def unavailable(name: str) -> None:
         raise error_type("synthetic missing libEGL.so.1")
 
     monkeypatch.setattr(loader, "import_module", unavailable)
-    response = TestClient(app).post(
-        "/point-cloud/detect-obstacles", json={"point_cloud_file": str(path)}
+    response = point_cloud_client.post(
+        "/point-cloud/detect-obstacles", json={"point_cloud_file": pcd_file.name}
     )
     assert response.status_code == 503
     assert response.json() == {"detail": "Point cloud runtime is unavailable"}
