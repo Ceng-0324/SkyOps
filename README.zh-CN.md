@@ -188,6 +188,7 @@ SkyOps 是作业需求与执行系统之间的**自主协调层**，提供：
 - **[AGENTS.md](./AGENTS.md)**：AI 代理和团队成员开发指南
 - **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**：Phase 3 评测合约（历史参考）
 - **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**：LLM 适配器安全边界（长期设计原则）
+- **[docs/point-cloud-api.md](./docs/point-cloud-api.md)**：F02 点云接口、目录配置和错误契约
 
 ---
 
@@ -200,6 +201,17 @@ SkyOps 是作业需求与执行系统之间的**自主协调层**，提供：
 - uv（Python 包管理器）
 
 ### 安装
+
+Linux（Ubuntu/Debian，包括无显示器服务器）先安装 Open3D 的原生依赖：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 libidn2-0 libgfortran5
+```
+
+这些动态库不由 `uv sync` 安装。macOS 使用 Open3D 的平台 wheel，无需执行 apt。
+安装 Python 依赖后，在 `backend/` 运行 `uv run --frozen python -c "import open3d; import app.main"`
+检查环境；无需显示器或 GPU。缺少原生依赖时点云检测返回 503，其他 API 仍可启动。
 
 ```bash
 # 克隆仓库

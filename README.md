@@ -189,6 +189,7 @@ SkyOps is the **autonomous coordination layer** between operational requirements
 - **[AGENTS.md](./AGENTS.md)**: Development guidelines for AI agents and team members
 - **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**: Phase 3 evaluation contracts (legacy reference)
 - **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**: LLM adapter safety boundary (long-term design principle)
+- **[docs/point-cloud-api.md](./docs/point-cloud-api.md)**: F02 point-cloud API, directory configuration, and error contract
 
 ---
 
@@ -201,6 +202,18 @@ SkyOps is the **autonomous coordination layer** between operational requirements
 - uv (Python package manager)
 
 ### Installation
+
+On Linux (Ubuntu/Debian, including headless servers), install Open3D's native runtime first:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 libidn2-0 libgfortran5
+```
+
+`uv sync` does not install these shared libraries. macOS uses the platform wheel and does not need apt.
+After installing Python dependencies, run `uv run --frozen python -c "import open3d; import app.main"`
+from `backend/` to verify the environment. No display or GPU is required. If the native runtime is
+missing, point-cloud detection returns 503 while other APIs can still start.
 
 ```bash
 # Clone the repository
