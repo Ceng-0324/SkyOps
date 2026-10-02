@@ -3,10 +3,10 @@
 从文件或数据流加载点云数据。
 """
 
+from importlib import import_module
 from pathlib import Path
 
 import numpy as np
-import open3d as o3d
 
 from app.core.models.common import DataSourceType
 from app.core.models.point_cloud import PointCloud
@@ -16,6 +16,10 @@ class PointCloudLoadError(Exception):
     """点云加载错误。"""
 
     pass
+
+
+class PointCloudUnavailableError(Exception):
+    """点云原生运行依赖不可用。"""
 
 
 def load_point_cloud_from_file(
@@ -39,6 +43,11 @@ def load_point_cloud_from_file(
     if not file_path.exists():
         msg = f"Point cloud file not found: {file_path}"
         raise PointCloudLoadError(msg)
+
+    try:
+        o3d = import_module("open3d")
+    except (ImportError, OSError) as exc:
+        raise PointCloudUnavailableError("Point cloud runtime is unavailable") from exc
 
     try:
         # 使用 Open3D 加载点云

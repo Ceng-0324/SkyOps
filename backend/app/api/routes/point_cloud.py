@@ -8,7 +8,7 @@ from app.api.schemas.point_cloud import (
 )
 from app.core.models.common import DataSourceType
 from app.core.point_cloud import detect_obstacles, load_point_cloud_from_file
-from app.core.point_cloud.loader import PointCloudLoadError
+from app.core.point_cloud.loader import PointCloudLoadError, PointCloudUnavailableError
 
 router = APIRouter(prefix="/point-cloud", tags=["point-cloud"])
 
@@ -45,11 +45,11 @@ def detect_obstacles_from_file(
 
         return ObstacleDetectionResponse(result=result)
 
+    except PointCloudUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except PointCloudLoadError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Internal server error: {exc}"
-        ) from exc
+        raise HTTPException(status_code=500, detail=f"Internal server error: {exc}") from exc

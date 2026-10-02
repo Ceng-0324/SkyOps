@@ -202,6 +202,18 @@ SkyOps is the **autonomous coordination layer** between operational requirements
 
 ### Installation
 
+On Linux (Ubuntu/Debian, including headless servers), install Open3D's native runtime first:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+```
+
+`uv sync` does not install these shared libraries. macOS uses the platform wheel and does not need apt.
+After installing Python dependencies, run `uv run --frozen python -c "import open3d; import app.main"`
+from `backend/` to verify the environment. No display or GPU is required. If the native runtime is
+missing, point-cloud detection returns 503 while other APIs can still start.
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/SkyOps.git

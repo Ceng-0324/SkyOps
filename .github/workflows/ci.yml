@@ -29,6 +29,15 @@ jobs:
         working-directory: backend
         run: uv sync --locked
 
+      - name: Install Open3D native runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+
+      - name: Verify native runtime and application imports
+        working-directory: backend
+        run: uv run --frozen python -c "import open3d; import app.main"
+
       - name: Run backend tests
         working-directory: backend
         run: uv run pytest
@@ -59,4 +68,3 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-
