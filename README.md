@@ -206,7 +206,7 @@ On Linux (Ubuntu/Debian, including headless servers), install Open3D's native ru
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 libidn2-0 libgfortran5
 ```
 
 `uv sync` does not install these shared libraries. macOS uses the platform wheel and does not need apt.

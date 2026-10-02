@@ -205,7 +205,7 @@ Linux（Ubuntu/Debian，包括无显示器服务器）先安装 Open3D 的原生
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 libidn2-0 libgfortran5
 ```
 
 这些动态库不由 `uv sync` 安装。macOS 使用 Open3D 的平台 wheel，无需执行 apt。

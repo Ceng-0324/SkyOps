@@ -32,7 +32,7 @@ jobs:
       - name: Install Open3D native runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 libidn2-0 libgfortran5
 
       - name: Verify native runtime and application imports
         working-directory: backend
