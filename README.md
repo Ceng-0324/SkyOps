@@ -189,6 +189,7 @@ SkyOps is the **autonomous coordination layer** between operational requirements
 - **[AGENTS.md](./AGENTS.md)**: Development guidelines for AI agents and team members
 - **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**: Phase 3 evaluation contracts (legacy reference)
 - **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**: LLM adapter safety boundary (long-term design principle)
+- **[docs/point-cloud-api.md](./docs/point-cloud-api.md)**: F02 point-cloud API, directory configuration, and error contract
 
 ---
 

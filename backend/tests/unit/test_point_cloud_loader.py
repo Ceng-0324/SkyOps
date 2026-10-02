@@ -121,3 +121,20 @@ def test_declared_allocation_limit(pcd_file: Path) -> None:
     )
     with pytest.raises(PointCloudTooLargeError, match="Decoded"):
         load_point_cloud_from_file(pcd_file, data_dir=pcd_file.parent)
+
+
+@pytest.mark.parametrize("damage", ["declared_size", "compressed_stream"])
+def test_rejects_damaged_compressed_pcd(pcd_file: Path, damage: str) -> None:
+    """压缩大小异常及原生解压失败都不能返回成功点云。"""
+    import open3d as o3d
+
+    cloud = o3d.io.read_point_cloud(str(pcd_file))
+    assert o3d.io.write_point_cloud(str(pcd_file), cloud, compressed=True)
+    header, body = pcd_file.read_bytes().split(b"DATA binary_compressed\n", 1)
+    if damage == "declared_size":
+        body = body[:4] + b"\xff" * 4 + body[8:]
+    else:
+        body = body[:8] + b"\xff" * (len(body) - 8)
+    pcd_file.write_bytes(header + b"DATA binary_compressed\n" + body)
+    with pytest.raises(PointCloudLoadError):
+        load_point_cloud_from_file(pcd_file, data_dir=pcd_file.parent)

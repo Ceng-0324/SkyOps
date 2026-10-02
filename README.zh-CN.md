@@ -188,6 +188,7 @@ SkyOps 是作业需求与执行系统之间的**自主协调层**，提供：
 - **[AGENTS.md](./AGENTS.md)**：AI 代理和团队成员开发指南
 - **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**：Phase 3 评测合约（历史参考）
 - **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**：LLM 适配器安全边界（长期设计原则）
+- **[docs/point-cloud-api.md](./docs/point-cloud-api.md)**：F02 点云接口、目录配置和错误契约
 
 ---
 
