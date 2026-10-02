@@ -4,11 +4,11 @@
 """
 
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import open3d as o3d
 
+from app.core.models.common import DataSourceType
 from app.core.models.point_cloud import PointCloud
 
 
@@ -20,7 +20,7 @@ class PointCloudLoadError(Exception):
 
 def load_point_cloud_from_file(
     file_path: str | Path,
-    source: Literal["mock", "simulated", "real"] = "mock",
+    source: DataSourceType = DataSourceType.MOCK,
 ) -> PointCloud:
     """从文件加载点云数据。
 

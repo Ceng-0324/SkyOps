@@ -1,11 +1,12 @@
 """点云和障碍物数据模型。"""
 
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timezone
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.models.common import DataSourceType
 
 
 class PointCloud(BaseModel):
@@ -18,17 +19,18 @@ class PointCloud(BaseModel):
         timestamp: 采集时间
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     points: NDArray[np.float64] = Field(..., description="点云坐标数组 (N×3)")
     colors: NDArray[np.float64] | None = Field(
         None, description="点云颜色数组 (N×3)"
     )
-    source: Literal["mock", "simulated", "real"] = Field(
-        default="mock", description="数据来源"
+    source: DataSourceType = Field(
+        default=DataSourceType.MOCK, description="数据来源"
     )
-    timestamp: datetime = Field(default_factory=datetime.now, description="采集时间")
-
-    class Config:
-        arbitrary_types_allowed = True
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), description="采集时间"
+    )
 
 
 class Obstacle(BaseModel):
@@ -62,6 +64,6 @@ class ObstacleDetectionResult(BaseModel):
 
     obstacles: list[Obstacle] = Field(default_factory=list, description="障碍物列表")
     detection_time: datetime = Field(
-        default_factory=datetime.now, description="检测时间"
+        default_factory=lambda: datetime.now(timezone.utc), description="检测时间"
     )
     algorithm: str = Field(default="unknown", description="检测算法名称")

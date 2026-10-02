@@ -1,13 +1,12 @@
 """点云处理 API 路由。"""
 
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 
 from app.api.schemas.point_cloud import (
     ObstacleDetectionRequest,
     ObstacleDetectionResponse,
 )
+from app.core.models.common import DataSourceType
 from app.core.point_cloud import detect_obstacles, load_point_cloud_from_file
 from app.core.point_cloud.loader import PointCloudLoadError
 
@@ -33,7 +32,7 @@ def detect_obstacles_from_file(
         # 加载点云
         point_cloud = load_point_cloud_from_file(
             file_path=request.point_cloud_file,
-            source="mock",
+            source=DataSourceType.MOCK,
         )
 
         # 检测障碍物

@@ -3,10 +3,9 @@
 从点云数据中检测障碍物。
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.cluster.vq import kmeans2
 
 from app.core.models.point_cloud import Obstacle, ObstacleDetectionResult, PointCloud
@@ -40,7 +39,7 @@ def detect_obstacles(
     if len(points) == 0:
         return ObstacleDetectionResult(
             obstacles=[],
-            detection_time=datetime.now(),
+            detection_time=datetime.now(timezone.utc),
             algorithm="height_threshold_kmeans",
         )
 
@@ -50,7 +49,7 @@ def detect_obstacles(
     if len(high_points) < min_points:
         return ObstacleDetectionResult(
             obstacles=[],
-            detection_time=datetime.now(),
+            detection_time=datetime.now(timezone.utc),
             algorithm="height_threshold_kmeans",
         )
 
@@ -66,7 +65,7 @@ def detect_obstacles(
         # 聚类失败，返回空结果
         return ObstacleDetectionResult(
             obstacles=[],
-            detection_time=datetime.now(),
+            detection_time=datetime.now(timezone.utc),
             algorithm="height_threshold_kmeans",
         )
 
@@ -88,7 +87,12 @@ def detect_obstacles(
         point_count = len(cluster_points)
         volume = float(np.prod(size)) if np.prod(size) > 0 else 1.0
         density = point_count / volume
-        confidence = min(1.0, (point_count / 100.0) * (density / 10.0))
+
+        # 标准化置信度：点数越多、密度越高，置信度越高
+        # 使用 sigmoid 函数限制在 [0, 1] 范围
+        point_score = min(1.0, point_count / 50.0)  # 50个点以上接近满分
+        density_score = min(1.0, density / 5.0)  # 密度5以上接近满分
+        confidence = (point_score + density_score) / 2  # 综合评分
 
         obstacle = Obstacle(
             id=f"obs_{cluster_id}",
@@ -101,6 +105,6 @@ def detect_obstacles(
 
     return ObstacleDetectionResult(
         obstacles=obstacles,
-        detection_time=datetime.now(),
+        detection_time=datetime.now(timezone.utc),
         algorithm="height_threshold_kmeans",
     )
