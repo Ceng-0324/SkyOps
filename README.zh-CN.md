@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="./frontend/src/public/skyops_readme_header_1.png" alt="SkyOps Agent" width="100%" />
+  <img src="./frontend/src/public/skyops_readme_header_1.png" alt="SkyOps" width="100%" />
 </p>
 
-<h1 align="center">SkyOps Agent</h1>
+<h1 align="center">SkyOps</h1>
 
 <p align="center">
-  <strong>面向低空作业的任务级自治与风险推演智能体</strong>
+  <strong>基于空间智能的低空作业自主协同系统</strong>
 </p>
 
 <p align="center">
-  从“能飞”走向“会运营”：让深圳低空经济场景中的无人机任务更安全、更可解释、更可复盘。
+  从单任务执行到多智能体协同：更安全、可解释、自适应的巡检、应急、物流等低空作业场景。
 </p>
 
 <p align="center">
@@ -17,246 +17,270 @@
   ·
   <a href="#项目概览">项目概览</a>
   ·
-  <a href="#已实现能力">核心能力</a>
+  <a href="#核心能力">核心能力</a>
   ·
-  <a href="#评测体系">评测体系</a>
+  <a href="#系统架构">系统架构</a>
   ·
-  <a href="#安全边界">安全边界</a>
+  <a href="#文档索引">文档索引</a>
 </p>
 
 <p align="center">
   <img alt="Backend" src="https://img.shields.io/badge/backend-FastAPI-009688?style=flat-square" />
-  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2F3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img alt="Pydantic" src="https://img.shields.io/badge/models-Pydantic%20v2-E92063?style=flat-square" />
-  <img alt="Frontend" src="https://img.shields.io/badge/frontend-React%20%2B%20Vite-61DAFB?style=flat-square&logo=react&logoColor=111111" />
-  <img alt="Styling" src="https://img.shields.io/badge/styling-Tailwind%20CSS-38BDF8?style=flat-square&logo=tailwindcss&logoColor=white" />
-  <img alt="Evaluation" src="https://img.shields.io/badge/evaluation-39%20mock%20cases-14B8A6?style=flat-square" />
-  <img alt="Status" src="https://img.shields.io/badge/status-MVP%20%2B%20evaluation%20ready-0F172A?style=flat-square" />
+  <img alt="Python" src="https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <img alt="Frontend" src="https://img.shields.io/badge/frontend-React-61DAFB?style=flat-square&logo=react&logoColor=black" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Status" src="https://img.shields.io/badge/status-active%20development-0F172A?style=flat-square" />
 </p>
 
 ---
 
 ## 项目概览
 
-**SkyOps Agent** 是面向深圳低空经济场景的低空作业任务自治与风险推演智能体。
+**SkyOps** 是基于空间智能的低空作业自主协同系统。融合世界模型、多智能体协同和空间语音交互，为多种低空作业场景提供任务级自主决策能力。
 
-它不是无人机缺陷识别系统，不是裂缝识别工具，不是光伏热斑检测工具，也不是无人机底层飞控系统。它的产品本体是作业需求与执行系统之间的**任务级自治决策层**。
+### SkyOps 是什么
 
-| 它不主要回答 | 它回答 |
+SkyOps 是作业需求与执行系统之间的**自主协调层**，提供：
+
+- **空间智能**：3D 场景理解、世界模型预测、主动探索
+- **自主协同**：多机协作、自适应规划、任务恢复
+- **空间语音协同**：语音+地图选择+角色权限+证据溯源
+
+### SkyOps 不是什么
+
+- ❌ 缺陷检测或 CV 识别系统
+- ❌ 底层飞控系统
+- ❌ 实时无人机硬件接口
+- ❌ 监管审批系统
+
+| 传统方案 | SkyOps 方案 |
 | --- | --- |
-| 无人机会不会飞？ | 当前约束下，这个任务该不该飞？ |
-| 图像里有没有缺陷？ | 什么时间窗口、起降点、航线策略和任务拆分方式最安全？ |
-| 无人机能否执行底层飞控命令？ | 风速、GPS、电量、空域、图传和人流风险变化时怎么办？ |
-| 巡检后能否生成报告？ | 如何形成可解释、可复盘、可持续优化的任务闭环？ |
+| 预设固定航线 | 根据实时环境动态规划 |
+| 单机执行，人工协调 | 多机自主协同 |
+| 遇到障碍中止任务 | 实时重规划，保留已完成工作 |
+| 执行后人工复盘 | 自动生成证据化复盘报告 |
+| 经验依赖，难以泛化 | 世界模型预测，快速适应新环境 |
 
-当前首个场景是：**深圳某高层建筑外立面巡检任务自治与风险推演**。巡检只是第一个 Demo 场景，任务自治能力可以扩展到园区光伏巡检、工地安全巡查、园区安防、应急救援、消防巡查、低空测绘、城市治理和物流配送等低空作业任务。
+---
 
-## 核心定位
+## 核心能力
 
-SkyOps Agent 位于低空作业体系的中间层：
+### 1. 空间智能
 
-```text
-城市级低空监管 / 空域管理 / UTM 平台
-                 |
-SkyOps Agent：任务自治与风险推演层
-                 |
-无人机 / 机库 / 飞控 / 载荷 / 巡检平台
+**理解空间、预测未来、主动探索**
+
+- **3D 场景理解**：点云处理 → 障碍识别 → 空间关系图
+- **世界模型**：实时 3DGS 重建 + 动作条件化未来预测
+- **场景补全**：从有限观测推断完整 3D 场景
+- **主动探索**：识别未充分重建区域，自动规划补拍路径
+
+**技术栈**：Open3D、PyTorch Geometric、3DGS、Physically Embodied Gaussian Splatting
+
+---
+
+### 2. 自主协同
+
+**协调多机、适应变化、故障恢复**
+
+- **多机协同**：分层架构，任务分配、冲突避让
+- **自适应规划**：策略组合、约束检查、增量重规划
+- **风险预演**：what-if 推演，可视化不同方案的预期结果
+- **任务恢复**：保留已完成工作，动态调整剩余任务
+
+**技术栈**：NetworkX、RRT*、DRL（规划中）、Vertiport 调度
+
+---
+
+### 3. 空间语音协同
+
+**语音+地图+角色=透明决策**
+
+- **多模态输入**：语音 + 文字 + 地图圈选
+- **空间指代理解**："这里""那个障碍"绑定地图对象
+- **多角色协同**：建议/批准/执行分开记录，权限控制
+- **证据追溯**：完整时间线回放，谁在何时决定了什么
+
+**技术栈**：Whisper（评估中）、Azure Speech（评估中）、WebSocket、RBAC
+
+---
+
+## 系统架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   用户交互层                              │
+│         语音 │ 文字 │ 地图 │ 触屏 │ 混合交互             │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              空间语音协同层                               │
+│  语音识别/合成 │ 空间指代解析 │ 多轮对话 │ 角色权限      │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│            任务理解与分解层                               │
+│  意图识别 │ 任务分解 │ 依赖分析 │ 完成条件 │ 约束提取    │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│          环境感知与空间推理层                             │
+│  点云处理 │ 障碍识别 │ 遮挡分析 │ 图推理 │ 动态地图更新  │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              自主协同层                                   │
+│  多机协同 │ 任务分配 │ 冲突避让 │ 自适应规划 │ 任务恢复  │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│        空间智能层（世界模型，阶段 3，扩展功能完成后）     │
+│  3DGS重建 │ 世界模型 │ 未来预测 │ 场景补全 │ 主动探索    │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              证据与复盘层                                 │
+│  证据关联 │ 时间线生成 │ 空间复盘 │ 交接记录 │ 审计支持  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-它不替代政府低空监管平台、UTM 系统、DJI 等厂商飞控系统或人工安全责任人。它的职责是把任务意图转化为结构化、保守、可解释的低空作业方案。
+---
 
-## 已实现能力
+## 应用场景
 
-| 能力 | 当前实现 |
-| --- | --- |
-| 任务规划 | 基于任务、环境、空域、设备、风险和解释字段的确定性编排。 |
-| 硬安全规则 | 显式检查风速、电量余量、GPS 置信度、图传延迟、人流等级和空域可飞性。 |
-| 风险推理 | 规则风险和场景风险均以结构化 `RiskItem` 保留证据、缓解措施和人工确认要求。 |
-| 异常重规划 | 覆盖风速突增、GPS 下降、图传延迟、电量不足、人群聚集、临时空域限制和未知异常。 |
-| 任务复盘 | 生成完成度、数据质量评分、风险触发记录、未覆盖区域、补飞计划、人工复核清单和下次优化建议。 |
-| 前端控制台 | React + Vite + Tailwind 任务运营台，支持规划、风险、异常注入、重规划、复盘、语言切换和主题切换。 |
-| 评测体系 | 39 个 mock/simulated 评测用例、指标合约、评分器、确定性 runner、report JSON 和前端评测摘要面板。 |
-| LLM 边界 | Phase 4-lite LLM adapter contract 与确定性 `MockLLMProvider`；当前不调用真实 LLM API。 |
+| 场景 | 核心需求 | SkyOps 价值 |
+|------|---------|-----------|
+| **建筑及设施巡检** | 应对遮挡、临时障碍，保证覆盖质量 | 实时环境建模，世界模型预测遮挡 |
+| **园区光伏巡检** | 协调分布目标，处理临时变化 | 多机协同，动态任务分配 |
+| **基础设施巡检** | 根据资产分布组织任务，约束变化后调整 | 图空间推理，增量重规划 |
+| **应急响应** | 快速理解现场，动态调整搜救路径 | 实时环境建模，风险预演 |
+| **物流配送** | 多机调度，避让冲突，电池管理 | Vertiport 调度，多机协同 |
+| **安防巡逻** | 覆盖重点区域，响应异常事件 | 自适应规划，任务恢复 |
+| **测绘与建模** | 高效覆盖，主动补采 | 主动探索，场景补全 |
 
-## 架构设计
-
-```text
-Frontend Mission Operations Console
-        |
-FastAPI Mission API
-        |
-Mission Orchestrator
-        |
-Rules / Replanner / Reviewer / Evaluation / LLM Adapter
-        |
-Mock Scenarios + Evaluation Dataset
-```
-
-| 模块 | 路径 | 作用 |
-| --- | --- | --- |
-| Mission API | `backend/app/api/routes/mission.py` | 任务规划、异常重规划和任务复盘接口。 |
-| 任务规划 | `backend/app/core/orchestration/mission_planner.py` | 汇总任务、环境、空域、设备和硬约束。 |
-| 安全规则 | `backend/app/core/rules/engine.py` | 确定性安全与合规检查。 |
-| 异常重规划 | `backend/app/core/orchestration/incident_replanner.py` | 将运行中异常转化为保守动作。 |
-| 任务复盘 | `backend/app/core/orchestration/mission_reviewer.py` | 生成复盘、未覆盖区域、补飞计划和后续优化。 |
-| 评测系统 | `backend/app/core/evaluation/` | 指标合约、评分器、runner、report JSON 和回归测试。 |
-| Mock 数据 | `backend/app/data/` | 场景数据与评测 fixtures，均使用 mock/simulated 数据。 |
-| LLM 接口 | `backend/app/integrations/llm/` | LLM provider contract、安全策略和 MockLLMProvider。 |
-| 前端控制台 | `frontend/src/features/mission/` | 任务运营可视化界面。 |
-| 评测面板 | `frontend/src/features/evaluation/` | 评测摘要和失败用例展示。 |
-
-## 评测体系
-
-SkyOps Agent 必须可测试、可量化，而不是只讲概念。当前评测对象不是无人机硬件，也不是 CV 缺陷识别模型，而是 Agent 在复杂约束下的任务决策能力。
-
-当前本地 mock/simulated 评测摘要：
-
-| 字段 | 当前结果 |
-| --- | ---: |
-| case_count | 39 |
-| passed_count | 28 |
-| failed_count | 11 |
-| hard_constraint_pass_rate | 0.963 |
-| risk_recall_avg | 1.000 |
-| incident_response_avg | 0.359 |
-| explainability_avg | 0.9882 |
-
-这些数字不是生产认证结果，也不是对真实飞行能力的承诺，而是本地 mock/simulated 评测集下的可复现结果。failed cases 会被保留，用于暴露当前规则、异常响应和基准方案的薄弱点。
-
-| 指标 | 检查内容 |
-| --- | --- |
-| Hard Constraint Pass Rate / 硬约束通过率 | 禁飞状态、审批门槛、风速、电量余量、GPS 置信度、人流安全和航线级硬约束。 |
-| Risk Recall / 风险召回率 | 是否识别 GPS 下降、风速上升、人流高峰、临时限制、低能见度和图传延迟等预期风险。 |
-| Incident Response Score / 异常处置得分 | 异常后是否暂停、返航、启用保守航线、保存数据、生成补飞计划、解释原因并要求人工复核。 |
-| Explainability Score / 可解释性得分 | 关键决策是否包含事实、推理、建议动作和人工确认事项。 |
-| Plan Efficiency / 方案效率 | 在不抵消安全失败的前提下评估覆盖率、拆分次数、补飞负载和人工介入。 |
-
-## LLM 边界
-
-SkyOps Agent 当前包含 Phase 4-lite LLM 接口预览，但**不调用真实 LLM API**。
-
-LLM 层只做辅助：
-
-```text
-LLM can suggest, but cannot approve flight.
-```
-
-| 层级 | 职责 | 边界 |
-| --- | --- | --- |
-| Deterministic Safety Layer / 确定性安全层 | 风速、电量、GPS、图传、人流和空域规则。 | 阻断不安全方案，不能被 LLM 覆盖。 |
-| Agent Reasoning Layer / 任务推理层 | 任务规划、风险推理、异常重规划、复盘和评测。 | 生成结构化决策，并受规则和测试约束。 |
-| LLM Assistance Layer / LLM 辅助层 | 任务解析草稿、缺失约束建议、解释生成和复盘润色。 | 只输出 draft / suggestion / explanation。 |
-
-未来可以在同一 adapter contract 下接入真实 provider，但仍不得批准飞行、绕过人工复核、覆盖硬约束、修改安全阈值或隐藏不确定性。
+---
 
 ## 技术栈
 
-| 层级 | 技术 |
-| --- | --- |
-| 后端 | Python 3.11/3.12, FastAPI |
-| 数据模型 | Pydantic v2 |
-| 测试 | pytest |
-| Lint | Ruff |
-| 配置 | python-dotenv, PyYAML |
-| 前端 | React, TypeScript, Vite |
-| 样式 | Tailwind CSS |
-| 图标 | lucide-react |
-| 图表 | Recharts |
-| 数据 | YAML / JSON mock 和 simulated 数据集 |
-| 编排 | 项目内确定性 orchestrator |
+### 后端
+- **语言**：Python 3.12
+- **Web 框架**：FastAPI、Pydantic v2、uvicorn
+- **点云与几何**：Open3D、NumPy、SciPy
+- **图与规划**：NetworkX、RRT*、A*
+- **深度学习**：PyTorch、PyTorch Geometric
+- **世界模型**：3DGS（gsplat、nerfstudio）
+- **数据库**：SQLite（初期）、PostgreSQL（评估）
+- **测试**：pytest、Ruff
+
+### 前端
+- **框架**：React 19、TypeScript 5、Vite
+- **样式**：Tailwind CSS 4
+- **3D 可视化**：Three.js、React Three Fiber、@react-three/drei
+- **状态管理**：Zustand
+- **图表**：Recharts
+- **图标**：lucide-react
+
+---
+
+## 文档索引
+
+- **[PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md)**：产品定位、开发路线、阶段 0-4
+- **[TECHNICAL_PROPOSAL.md](./TECHNICAL_PROPOSAL.md)**：核心功能（F01-F10）、扩展路线图（E01-E09）、世界模型技术路径
+- **[AGENTS.md](./AGENTS.md)**：AI 代理和团队成员开发指南
+- **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**：Phase 3 评测合约（历史参考）
+- **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**：LLM 适配器安全边界（长期设计原则）
+
+---
 
 ## 快速开始
 
-安装本地工具：
+### 环境要求
+
+- Python 3.12
+- Node.js 18+
+- uv（Python 包管理器）
+
+### 安装
 
 ```bash
-brew install uv python@3.12
-```
+# 克隆仓库
+git clone https://github.com/yourusername/SkyOps.git
+cd SkyOps
 
-安装后端依赖：
-
-```bash
+# 后端设置
 cd backend
 uv sync
-```
+uv run pytest
 
-启动后端 API：
-
-```bash
-uv run uvicorn app.main:app --reload
-```
-
-启动前端：
-
-```bash
-cd frontend
+# 前端设置
+cd ../frontend
 npm install
 npm run dev
 ```
 
-检查后端健康接口：
+### 运行系统
 
 ```bash
-curl http://127.0.0.1:8000/health
-```
-
-运行一次 mock 任务规划：
-
-```bash
-curl -X POST http://127.0.0.1:8000/missions/plan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "raw_user_input": "明天上午巡检南山区一栋180米高办公楼外立面。",
-    "scenario_id": "shenzhen_nanshan_highrise_demo"
-  }'
-```
-
-运行测试和构建：
-
-```bash
+# 启动后端
 cd backend
-uv run pytest
-uv run ruff check .
-```
+uv run uvicorn app.main:app --reload
 
-```bash
+# 启动前端（另一个终端）
 cd frontend
-npm run build
+npm run dev
 ```
 
-近期本地验证：
+在浏览器中打开 http://localhost:5173
 
-```text
-Backend pytest: 105 passed
-Frontend build: passed
-```
+---
+
+## 当前状态
+
+**正在积极开发** - 核心功能（F01-F10）实现中
+
+- ✅ 后端工程基础（FastAPI、Pydantic、pytest）
+- ✅ 前端工程基础（React、TypeScript、Vite、Tailwind）
+- ✅ 任务规划框架（基于 YAML，正在迁移到可计算规划）
+- ✅ 安全规则框架（显式、可配置）
+- ✅ 异常处置（事件驱动模板）
+- ✅ 任务复盘（基于启发式，升级为证据化）
+- ✅ 评测框架（39 个 mock 用例，升级为独立验证）
+- 🚧 点云处理与空间推理
+- 🚧 多机协同
+- 🚧 空间语音协同
+- 📋 世界模型集成（阶段 3，扩展功能完成后）
+
+---
 
 ## 安全边界
 
-SkyOps Agent 是低空作业任务决策辅助系统，不是规避监管工具、飞控系统或人工安全责任人的替代品。
+SkyOps 遵循严格的安全原则：
 
-当前实现边界：
+- **LLM 可以建议，但不能批准飞行** - AI 辅助，规则决策
+- **所有安全规则显式、可配置、可测试** - 没有黑盒安全决策
+- **Mock/模拟数据明确标注** - 不伪装成真实数据
+- **输出区分事实、推理、建议和需要人工确认的事项** - 透明优先
+- **不确定时，建议人工复核、暂停或保守方案** - 安全高于效率
 
-- 使用 mock/simulated 数据。
-- 不接入真实无人机、机库、UTM、真实空域系统、真实天气 API 或真实人流数据。
-- 不控制真实起飞、降落或航线执行。
-- 不调用真实 LLM API。
-- 不批准飞行，也不绕过法规审批。
+---
 
-当信息不足或风险不确定时，系统应输出：
+## 贡献
 
-```text
-当前信息不足，建议人工复核/暂停执行/启用保守方案。
-```
+参见 [AGENTS.md](./AGENTS.md) 了解开发指南。
 
-## 路线图
+所有贡献必须：
+- 遵循现有代码风格（Python 用 Ruff，TypeScript 严格模式）
+- 为新功能包含测试
+- 不破坏现有评测用例
+- 架构变更需获得团队负责人批准
 
-| 阶段 | 重点 |
-| --- | --- |
-| 已完成 | 后端仿真闭环、显式安全规则、异常重规划、任务复盘、前端任务运营台、评测数据集、评测 runner/report、LLM adapter 边界。 |
-| 初赛准备 | 打磨技术方案材料、截图、页面文案和可展示的界面证据。 |
-| 后续扩展 | 真实天气/地图/UTM/无人机 adapter、任务历史存储、更大评测集，以及在既有安全 contract 下接入真实 LLM provider。 |
+---
 
 ## 许可证
 
 见 [LICENSE](./LICENSE)。
+
+---
+
+**版本**：3.1  
+**最后更新**：2026年  
+**维护者**：SkyOps 团队

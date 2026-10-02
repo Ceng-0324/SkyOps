@@ -1,5 +1,7 @@
 # Phase 3 Evaluation Metric Contracts
 
+> **注意**：本文档定义 Phase 3 评测合约（历史参考）。最新评测指标和基线系统见 [PRODUCT_ROADMAP.md](../PRODUCT_ROADMAP.md) 第五章。
+
 This document defines the Phase 3 evaluation contract for SkyOps Agent. It is a
 contract for simulated task-level autonomy evaluation, not a CV defect detection
 benchmark and not an LLM judge.

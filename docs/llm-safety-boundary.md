@@ -1,5 +1,7 @@
 # LLM Adapter Safety Boundary
 
+> **注意**：本文档定义 LLM 安全边界（长期设计原则）。当前阶段不调用真实 LLM API，未来集成时必须遵守本边界。
+
 Phase 4-lite defines how SkyOps Agent can connect to an LLM in the future
 without letting the model replace deterministic low-altitude safety decisions.
 

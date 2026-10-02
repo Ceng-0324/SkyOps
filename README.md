@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="./frontend/src/public/skyops_readme_header_1.png" alt="SkyOps Agent" width="100%" />
+  <img src="./frontend/src/public/skyops_readme_header_1.png" alt="SkyOps" width="100%" />
 </p>
 
-<h1 align="center">SkyOps Agent</h1>
+<h1 align="center">SkyOps</h1>
 
 <p align="center">
-  <strong>Task-level autonomy and risk simulation for low-altitude operations</strong>
+  <strong>Spatial Intelligence-Powered Autonomous Coordination System for Low-Altitude Operations</strong>
 </p>
 
 <p align="center">
-  From "can fly" to "can operate": safer, explainable, and reviewable drone missions for Shenzhen's low-altitude economy.
+  From single-task execution to multi-agent collaboration: safer, explainable, and adaptive operations across inspection, emergency response, logistics, and beyond.
 </p>
 
 <p align="center">
@@ -17,246 +17,271 @@
   ·
   <a href="#overview">Overview</a>
   ·
-  <a href="#implemented-capabilities">Capabilities</a>
+  <a href="#core-capabilities">Capabilities</a>
   ·
-  <a href="#evaluation-system">Evaluation</a>
+  <a href="#architecture">Architecture</a>
   ·
-  <a href="#safety-boundary">Safety</a>
+  <a href="#documentation">Documentation</a>
 </p>
 
 <p align="center">
   <img alt="Backend" src="https://img.shields.io/badge/backend-FastAPI-009688?style=flat-square" />
-  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2F3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img alt="Pydantic" src="https://img.shields.io/badge/models-Pydantic%20v2-E92063?style=flat-square" />
-  <img alt="Frontend" src="https://img.shields.io/badge/frontend-React%20%2B%20Vite-61DAFB?style=flat-square&logo=react&logoColor=111111" />
-  <img alt="Styling" src="https://img.shields.io/badge/styling-Tailwind%20CSS-38BDF8?style=flat-square&logo=tailwindcss&logoColor=white" />
-  <img alt="Evaluation" src="https://img.shields.io/badge/evaluation-39%20mock%20cases-14B8A6?style=flat-square" />
-  <img alt="Status" src="https://img.shields.io/badge/status-MVP%20%2B%20evaluation%20ready-0F172A?style=flat-square" />
+  <img alt="Python" src="https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <img alt="Frontend" src="https://img.shields.io/badge/frontend-React-61DAFB?style=flat-square&logo=react&logoColor=black" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Status" src="https://img.shields.io/badge/status-active%20development-0F172A?style=flat-square" />
 </p>
 
 ---
 
 ## Overview
 
-**SkyOps Agent** is a low-altitude mission autonomy and risk simulation agent for Shenzhen's low-altitude economy.
+**SkyOps** is a spatial intelligence-powered autonomous coordination system for low-altitude operations. It combines world models, multi-agent collaboration, and spatial voice interaction to enable task-level autonomous decision-making across diverse scenarios.
 
-It is not a drone defect detection system, a crack recognition tool, a photovoltaic hotspot detector, or a low-level flight controller. Its product identity is the **task-level autonomy layer** between operational demand and execution systems.
+### What SkyOps Is
 
-| It does not primarily answer | It answers |
+SkyOps is the **autonomous coordination layer** between operational requirements and execution systems. It provides:
+
+- **Spatial Intelligence**: 3D scene understanding, world model prediction, and active exploration
+- **Autonomous Coordination**: Multi-agent collaboration, adaptive planning, and task recovery
+- **Spatial Voice Collaboration**: Voice + map selection with role-based permissions and evidence traceability
+
+### What SkyOps Is NOT
+
+- ❌ A defect detection or CV recognition system
+- ❌ A low-level flight controller
+- ❌ A real-time drone hardware interface
+- ❌ A regulatory approval system
+
+| Traditional Approach | SkyOps Approach |
 | --- | --- |
-| Can the drone physically fly? | Should this mission fly under current constraints? |
-| Is there a defect in an image? | What time window, launch point, route strategy, and mission split are safest? |
-| Can a drone follow a flight-control command? | What should happen when wind, GPS, battery, airspace, data-link, or crowd risk changes? |
-| Can a report be generated after inspection? | How can the mission become explainable, reviewable, and continuously optimized? |
+| Pre-set fixed routes | Dynamic planning based on real-time environment |
+| Single-drone, manual coordination | Multi-agent autonomous collaboration |
+| Abort on obstacles | Real-time replanning with completed work preserved |
+| Manual post-flight review | Automated evidence-based review |
+| Experience-dependent, hard to generalize | World model prediction, rapid environment adaptation |
 
-The first scenario is **autonomous mission planning and risk simulation for a high-rise building facade inspection in Shenzhen**. Inspection is only the first demo domain. The same task-autonomy layer can extend to photovoltaic inspection, construction site safety checks, campus security patrols, emergency response, fire safety patrols, low-altitude mapping, urban governance, and logistics missions.
+---
 
-## Product Positioning
+## Core Capabilities
 
-SkyOps Agent sits in the middle of a three-layer low-altitude operation stack:
+### 1. Spatial Intelligence
 
-```text
-City-level regulation / airspace management / UTM
-                 |
-SkyOps Agent: task autonomy and risk simulation
-                 |
-Drones / docks / flight control / payloads / inspection platforms
-```
+**Understand space, predict future, explore actively**
 
-It does not replace government airspace platforms, UTM systems, DJI flight controllers, or human safety responsibility. It turns mission intent into a structured, conservative, explainable operation plan.
+- **3D Scene Understanding**: Point cloud processing → obstacle detection → spatial relation graph
+- **World Model**: Real-time 3D Gaussian Splatting reconstruction + action-conditioned future prediction
+- **Scene Completion**: Infer complete 3D scene from limited observations
+- **Active Exploration**: Identify under-reconstructed areas and autonomously plan supplementary coverage
 
-## Implemented Capabilities
+**Technologies**: Open3D, PyTorch Geometric, 3DGS, Physically Embodied Gaussian Splatting
 
-| Capability | Current implementation |
-| --- | --- |
-| Task planning | Deterministic mission orchestration over task, environment, airspace, drone state, risks, and explanations. |
-| Hard safety rules | Explicit checks for wind, battery margin, GPS confidence, video latency, crowd level, and airspace flyability. |
-| Risk reasoning | Rule-generated risks and scenario risks are preserved as structured `RiskItem` objects with evidence and mitigation. |
-| Incident replanning | Handles wind spikes, GPS drops, video latency, low battery, crowd gathering, temporary restrictions, and unknown incidents. |
-| Mission review | Produces completion rate, data quality score, risk trigger log, uncovered areas, makeup flight plan, human checklist, and next optimizations. |
-| Mission console | React + Vite + Tailwind operations console for planning, risk review, incident injection, replanning, review, language toggle, and theme toggle. |
-| Evaluation system | 39 mock/simulated evaluation cases, metric contracts, scoring functions, deterministic runner, report JSON, and frontend summary panel. |
-| LLM boundary | Phase 4-lite LLM adapter contract and deterministic `MockLLMProvider`; no real LLM API is called. |
+---
+
+### 2. Autonomous Coordination
+
+**Coordinate multiple agents, adapt to changes, recover from failures**
+
+- **Multi-Agent Collaboration**: Hierarchical architecture with task allocation and conflict avoidance
+- **Adaptive Planning**: Strategy composition, constraint checking, incremental replanning
+- **Risk Simulation**: What-if analysis and visualization of different plan outcomes
+- **Task Recovery**: Preserve completed work and dynamically adjust remaining tasks
+
+**Technologies**: NetworkX, RRT*, DRL (future), Vertiport scheduling
+
+---
+
+### 3. Spatial Voice Collaboration
+
+**Voice + map + roles = transparent decisions**
+
+- **Multimodal Input**: Voice + text + map selection
+- **Spatial Reference Understanding**: "here" and "that obstacle" bind to map objects
+- **Multi-Role Coordination**: Separate suggestion / approval / execution with permissions
+- **Evidence Traceability**: Complete timeline replay of who decided what, when, and why
+
+**Technologies**: Whisper (eval), Azure Speech (eval), WebSocket, RBAC
+
+---
 
 ## Architecture
 
-```text
-Frontend Mission Operations Console
-        |
-FastAPI Mission API
-        |
-Mission Orchestrator
-        |
-Rules / Replanner / Reviewer / Evaluation / LLM Adapter
-        |
-Mock Scenarios + Evaluation Dataset
+```
+┌─────────────────────────────────────────────────────────┐
+│                   User Interaction Layer                 │
+│         Voice │ Text │ Map │ Touch │ Hybrid             │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              Spatial Voice Collaboration                 │
+│  Speech Recognition/Synthesis │ Spatial Reference       │
+│  Multi-turn Dialogue │ Role Permissions                 │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│            Task Understanding & Decomposition            │
+│  Intent Recognition │ Task Breakdown │ Dependency       │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│         Environment Sensing & Spatial Reasoning          │
+│  Point Cloud │ Obstacle Detection │ Graph Reasoning     │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              Autonomous Coordination Layer               │
+│  Multi-Agent │ Task Allocation │ Adaptive Planning      │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│        Spatial Intelligence (World Model, Stage 3)       │
+│  3DGS Reconstruction │ Future Prediction │ Exploration  │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│               Evidence & Review Layer                    │
+│  Evidence Linking │ Timeline │ Spatial Replay │ Audit   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-| Module | Path | Purpose |
-| --- | --- | --- |
-| Mission API | `backend/app/api/routes/mission.py` | Mission planning, incident replanning, and mission review endpoints. |
-| Mission planning | `backend/app/core/orchestration/mission_planner.py` | Combines task, environment, airspace, drone state, and hard rules. |
-| Safety rules | `backend/app/core/rules/engine.py` | Deterministic safety and compliance checks. |
-| Incident replanning | `backend/app/core/orchestration/incident_replanner.py` | Converts runtime incidents into conservative actions. |
-| Mission review | `backend/app/core/orchestration/mission_reviewer.py` | Builds review, uncovered areas, makeup flight plan, and future improvements. |
-| Evaluation | `backend/app/core/evaluation/` | Metric contracts, scorers, runner, report JSON, and regression coverage. |
-| Mock data | `backend/app/data/` | Scenarios and evaluation fixtures using mock/simulated data. |
-| LLM adapter | `backend/app/integrations/llm/` | LLM provider contract, safety policy, and MockLLMProvider. |
-| Frontend | `frontend/src/features/mission/` | Mission operations UI. |
-| Evaluation UI | `frontend/src/features/evaluation/` | Evaluation summary and failed-case display. |
+---
 
-## Evaluation System
+## Application Scenarios
 
-SkyOps Agent is designed to be measurable, not just conceptual. The evaluation target is not drone hardware or CV defect recognition. It is the agent's task decision quality under complex constraints.
+| Scenario | Core Requirements | SkyOps Value |
+|----------|------------------|--------------|
+| **Building & Facility Inspection** | Handle occlusion, temporary obstacles, ensure coverage | Real-time environment modeling, world model occlusion prediction |
+| **Solar Farm Inspection** | Coordinate distributed targets, handle temporary changes | Multi-agent collaboration, dynamic task allocation |
+| **Infrastructure Inspection** | Organize tasks by asset distribution, adjust on constraint changes | Graph spatial reasoning, incremental replanning |
+| **Emergency Response** | Rapid scene understanding, dynamic search path adjustment | Real-time environment modeling, risk simulation |
+| **Logistics & Delivery** | Multi-drone scheduling, conflict avoidance, battery management | Vertiport scheduling, multi-agent coordination |
+| **Security Patrol** | Cover key areas, respond to anomalies | Adaptive planning, task recovery |
+| **Mapping & Surveying** | Efficient coverage, active supplementary capture | Active exploration, scene completion |
 
-Current evaluation summary over local mock/simulated cases:
+---
 
-| Field | Current result |
-| --- | ---: |
-| case_count | 39 |
-| passed_count | 28 |
-| failed_count | 11 |
-| hard_constraint_pass_rate | 0.963 |
-| risk_recall_avg | 1.000 |
-| incident_response_avg | 0.359 |
-| explainability_avg | 0.9882 |
+## Technology Stack
 
-These numbers are not production certification results and do not represent real flight approval. They are reproducible results from the local mock/simulated dataset and are used to expose decision gaps for improvement.
+### Backend
+- **Language**: Python 3.12
+- **Web Framework**: FastAPI, Pydantic v2, uvicorn
+- **Point Cloud & Geometry**: Open3D, NumPy, SciPy
+- **Graph & Planning**: NetworkX, RRT*, A*
+- **Deep Learning**: PyTorch, PyTorch Geometric
+- **World Model**: 3DGS (gsplat, nerfstudio)
+- **Database**: SQLite (initial), PostgreSQL (eval)
+- **Testing**: pytest, Ruff
 
-| Metric | Checks |
-| --- | --- |
-| Hard Constraint Pass Rate | No-fly status, approval gates, wind limits, battery margin, GPS confidence, crowd safety, and route-level hard constraints. |
-| Risk Recall | Whether expected risks such as GPS degradation, wind rise, crowd peaks, temporary restrictions, low visibility, and data-link delay are identified. |
-| Incident Response Score | Whether injected incidents lead to pause, return, conservative route, data preservation, makeup planning, explanation, and human review. |
-| Explainability Score | Whether key decisions include facts, inferences, recommended actions, and human confirmation requirements. |
-| Plan Efficiency | Whether coverage, task splits, makeup load, and manual intervention are efficient without offsetting safety failures. |
+### Frontend
+- **Framework**: React 19, TypeScript 5, Vite
+- **Styling**: Tailwind CSS 4
+- **3D Visualization**: Three.js, React Three Fiber, @react-three/drei
+- **State Management**: Zustand
+- **Charts**: Recharts
+- **Icons**: lucide-react
 
-## LLM Boundary
+---
 
-SkyOps Agent includes a Phase 4-lite LLM interface preview, but it does **not** call any real LLM API in the current version.
+## Documentation
 
-The LLM layer is intentionally assistive:
+- **[PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md)**: Product positioning, development roadmap, stages 0-4
+- **[TECHNICAL_PROPOSAL.md](./TECHNICAL_PROPOSAL.md)**: Core functions (F01-F10), extension roadmap (E01-E09), world model tech path
+- **[AGENTS.md](./AGENTS.md)**: Development guidelines for AI agents and team members
+- **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**: Phase 3 evaluation contracts (legacy reference)
+- **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**: LLM adapter safety boundary (long-term design principle)
 
-```text
-LLM can suggest, but cannot approve flight.
-```
-
-| Layer | Responsibility | Boundary |
-| --- | --- | --- |
-| Deterministic Safety Layer | Wind, battery, GPS, video latency, crowd, and airspace rules. | Blocks unsafe plans and cannot be overridden by LLM output. |
-| Agent Reasoning Layer | Planning, risk reasoning, replanning, review, and evaluation. | Produces structured decisions constrained by rules and tests. |
-| LLM Assistance Layer | Task parsing drafts, missing-constraint suggestions, explanations, and review wording. | Outputs draft/suggestion/explanation only. |
-
-Future real providers can be added behind the same adapter contract, but they must not approve flight, bypass human review, override hard constraints, change safety thresholds, or hide uncertainty.
-
-## Tech Stack
-
-| Layer | Stack |
-| --- | --- |
-| Backend | Python 3.11/3.12, FastAPI |
-| Data models | Pydantic v2 |
-| Testing | pytest |
-| Lint | Ruff |
-| Configuration | python-dotenv, PyYAML |
-| Frontend | React, TypeScript, Vite |
-| Styling | Tailwind CSS |
-| Icons | lucide-react |
-| Charts | Recharts |
-| Data | YAML / JSON mock and simulated datasets |
-| Orchestration | Project-owned deterministic orchestrator |
+---
 
 ## Getting Started
 
-Install local tools:
+### Prerequisites
+
+- Python 3.12
+- Node.js 18+
+- uv (Python package manager)
+
+### Installation
 
 ```bash
-brew install uv python@3.12
-```
+# Clone the repository
+git clone https://github.com/yourusername/SkyOps.git
+cd SkyOps
 
-Install backend dependencies:
-
-```bash
+# Backend setup
 cd backend
 uv sync
-```
+uv run pytest
 
-Run the backend API:
-
-```bash
-uv run uvicorn app.main:app --reload
-```
-
-Run the frontend:
-
-```bash
-cd frontend
+# Frontend setup
+cd ../frontend
 npm install
 npm run dev
 ```
 
-Check the backend health endpoint:
+### Running the System
 
 ```bash
-curl http://127.0.0.1:8000/health
-```
-
-Run a mock mission planning request:
-
-```bash
-curl -X POST http://127.0.0.1:8000/missions/plan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "raw_user_input": "Inspect a 180-meter office building facade in Nanshan tomorrow morning.",
-    "scenario_id": "shenzhen_nanshan_highrise_demo"
-  }'
-```
-
-Run tests and build:
-
-```bash
+# Start backend
 cd backend
-uv run pytest
-uv run ruff check .
-```
+uv run uvicorn app.main:app --reload
 
-```bash
+# Start frontend (in another terminal)
 cd frontend
-npm run build
+npm run dev
 ```
 
-Recent local verification:
+Open http://localhost:5173 in your browser.
 
-```text
-Backend pytest: 105 passed
-Frontend build: passed
-```
+---
+
+## Current Status
+
+**Active Development** - Core functions (F01-F10) implementation in progress.
+
+- ✅ Backend engineering foundation (FastAPI, Pydantic, pytest)
+- ✅ Frontend engineering foundation (React, TypeScript, Vite, Tailwind)
+- ✅ Task planning framework (YAML-based, transitioning to computed)
+- ✅ Safety rules framework (explicit, configurable)
+- ✅ Incident handling (event-driven templates)
+- ✅ Mission review (heuristic-based, upgrading to evidence-based)
+- ✅ Evaluation framework (39 mock cases, upgrading to independent validation)
+- 🚧 Point cloud processing & spatial reasoning
+- 🚧 Multi-agent coordination
+- 🚧 Spatial voice collaboration
+- 📋 World model integration (Stage 3, after extension functions)
+
+---
 
 ## Safety Boundary
 
-SkyOps Agent is a low-altitude mission decision-support system. It is not a regulatory bypass tool, a flight-control system, or a replacement for human safety responsibility.
+SkyOps operates under strict safety principles:
 
-Current implementation boundaries:
+- **LLM can suggest, but cannot approve flight** - AI assists, rules decide
+- **All safety rules are explicit, configurable, testable** - No black-box safety decisions
+- **Mock/simulated data clearly labeled** - No pretending to be real data
+- **Outputs distinguish fact, inference, suggestion, and human confirmation required** - Transparency first
+- **When uncertain, recommend human review, pause, or conservative approach** - Safety over efficiency
 
-- Uses mock/simulated data.
-- Does not connect to real drones, docks, UTM, real airspace systems, real weather APIs, or real crowd data.
-- Does not control takeoff, landing, or real flight execution.
-- Does not call real LLM APIs.
-- Does not approve flight or bypass legal approval.
+---
 
-When information is insufficient or risk is uncertain, the expected behavior is:
+## Contributing
 
-```text
-Current information is insufficient. Manual review, mission pause, or conservative planning is recommended.
-```
+See [AGENTS.md](./AGENTS.md) for development guidelines.
 
-## Roadmap
+All contributions must:
+- Follow the existing code style (Ruff for Python, TypeScript strict mode)
+- Include tests for new features
+- Not break existing evaluation cases
+- Obtain team lead approval for architectural changes
 
-| Stage | Focus |
-| --- | --- |
-| Completed | Backend simulation loop, explicit safety rules, incident replanning, mission review, frontend operations console, evaluation dataset, evaluation runner/report, LLM adapter boundary. |
-| Competition preparation | Polish proposal materials, screenshots, copywriting, and presentation-ready UI evidence. |
-| Next expansion | Real weather/map/UTM/drone adapters, task history storage, larger evaluation set, and real LLM provider behind the existing safety contract. |
+---
 
 ## License
 
 See [LICENSE](./LICENSE).
+
+---
+
+**Version**: 3.1  
+**Last Updated**: 2026  
+**Maintained by**: SkyOps Team
