@@ -11,6 +11,11 @@ dependencies = [
     "python-dotenv>=1.2.0",
     "pyyaml>=6.0.0",
     "uvicorn[standard]>=0.38.0",
+    # Stage 1 dependencies
+    "numpy>=1.26.0",
+    "scipy>=1.13.0",
+    "open3d>=0.18.0",
+    "networkx>=3.2.0",
 ]
 
 [dependency-groups]
