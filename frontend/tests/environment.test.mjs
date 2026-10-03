@@ -82,7 +82,7 @@ for (const status of [400, 403, 404, 413, 422, 500, 503]) {
     assert.equal(store.getState().status, "error");
     assert.equal(store.getState().result, null);
     assert.equal(store.getState().error, status === 422
-      ? "API request failed with status 422" : `failure ${status}`);
+      ? "request: invalid parameter" : `failure ${status}`);
   });
 }
 

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "tsc -b && node scripts/test-environment.mjs",
+    "test": "tsc -b && node scripts/test-environment.mjs && node scripts/test-workspace.mjs",
+    "test:workspace:smoke": "tsc -b && node scripts/test-workspace.mjs --smoke",
     "test:environment:smoke": "tsc -b && node scripts/test-environment.mjs --smoke"
   },
   "dependencies": {

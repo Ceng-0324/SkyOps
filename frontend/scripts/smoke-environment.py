@@ -4,6 +4,7 @@ Use a Python environment with the backend dependencies installed. Nothing is upl
 or written to the configured point-cloud directory. The child is always reaped.
 """
 
+import argparse
 import os
 from pathlib import Path
 import socket
@@ -17,6 +18,9 @@ from urllib.request import urlopen
 
 def main() -> int:
     """Start the real API on an ephemeral port and exercise the frontend client/store."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workspace", action="store_true", help="Exercise the F01–F03 workspace")
+    args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     with socket.socket() as listener, tempfile.TemporaryFile(mode="w+") as log:
         listener.bind(("127.0.0.1", 0))
@@ -52,7 +56,7 @@ def main() -> int:
                 raise TimeoutError("Backend readiness exceeded 60 seconds")
             env = {**os.environ, "SKYOPS_TEST_API_BASE_URL": base_url}
             return subprocess.run(
-                ["npm", "run", "test:environment:smoke"],
+                ["npm", "run", "test:workspace:smoke" if args.workspace else "test:environment:smoke"],
                 cwd=root / "frontend",
                 env=env,
                 timeout=120,

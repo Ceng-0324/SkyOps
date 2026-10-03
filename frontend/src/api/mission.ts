@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import { isRecord, isTaskDependencies, isTaskTree, type TaskDependencies, type TaskTree } from "./task";
 
 export type DataSourceType = "mock" | "simulated" | "real";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -137,6 +138,9 @@ export type MissionPlanRequest = {
 };
 
 export type MissionPlanResponse = {
+  task_tree: TaskTree;
+  task_dependencies: TaskDependencies;
+  planning_basis: "scenario_template";
   mission_task: MissionTask;
   environment_state: EnvironmentState;
   airspace_constraint: AirspaceConstraint;
@@ -181,13 +185,18 @@ export const DEFAULT_INCIDENT_EVENT: IncidentEvent = {
   description: "Simulated sudden wind increase near the upper facade.",
 };
 
-export function createMissionPlan(
+export async function createMissionPlan(
   request: MissionPlanRequest,
 ): Promise<MissionPlanResponse> {
-  return apiRequest<MissionPlanResponse>("/missions/plan", {
+  const response = await apiRequest<unknown>("/missions/plan", {
     method: "POST",
     body: request,
   });
+  if (!isRecord(response) || !isTaskTree(response.task_tree)
+    || !isTaskDependencies(response.task_dependencies) || response.planning_basis !== "scenario_template") {
+    throw new Error("Invalid task-understanding response");
+  }
+  return response as MissionPlanResponse;
 }
 
 export function createReplanDecision(
