@@ -70,3 +70,26 @@
 每条边的 `prerequisite` 是前置任务，`dependent` 是后续任务。
 `blocked_tasks` 记录理解缺口，并向后继节点传播阻塞原因。
 `topological_order` 与 `parallel_groups` 只表示结构关系，不排除受阻节点，也不表示可以执行。
+
+## POST /missions/plan
+
+继续使用已有请求 `{ "raw_user_input": "…", "scenario_id": "…" }`，默认场景不变。
+将 JSON DSL 序列化为字符串放入 `raw_user_input`，或传入上述受限中文文本。
+
+响应保留原有字段，并新增：
+
+- `task_tree`：原文、任务定义、来源、澄清问题与 `status`。
+- `task_dependencies`：依赖边、拓扑顺序、并行分组和受阻任务。
+- `planning_basis: "scenario_template"`：明确当前航线、覆盖率和时长来自场景模板。
+
+存在任务定义时，`mission_task.operation_object` 与 `operation_goals` 按任务图的拓扑顺序
+生成；定义无法解析时目标标为待澄清、目标列表为空。其余场景类型、作业区域、时间窗口、
+风险偏好和场景约束仍来自原场景模板，不能视为从当前输入解析的事实。
+任务的完整结构、完成条件、引用和依赖以 `task_tree` 为准。
+`human_explanation` 标注场景事实，增加澄清与人工确认事项；`mission_plan.explanation`
+明确尚未按当前任务生成路径。硬约束检查继续使用场景环境并保留原规则结果。
+
+HTTP 200 可以携带 `needs_clarification`，它表示成功返回草稿而非任务可执行；
+调用者必须检查状态与澄清项，不能把响应码或拓扑顺序当作飞行批准。
+空白/超限输入、非法 DSL、非法依赖返回 422；未知场景仍返回 404。
+本阶段不提供会话持久化：澄清后重新提交完整 DSL/文本。

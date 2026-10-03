@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.core.models import (
@@ -9,6 +11,7 @@ from app.core.models import (
     MissionTask,
     RiskItem,
 )
+from app.core.models.task import TaskDependencyGraph, TaskTree
 
 
 class MissionPlanningResult(BaseModel):
@@ -19,3 +22,6 @@ class MissionPlanningResult(BaseModel):
     risks: list[RiskItem]
     mission_plan: MissionPlan
     human_explanation: Explanation
+    task_tree: TaskTree
+    task_dependencies: TaskDependencyGraph
+    planning_basis: Literal["scenario_template"] = "scenario_template"
