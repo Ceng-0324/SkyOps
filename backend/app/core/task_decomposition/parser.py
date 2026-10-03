@@ -28,6 +28,9 @@ _CLAUSE = re.compile(
     r"(?:[；;]完成条件[：:](?P<completion>[^；;]+))?"
 )
 _REFERENCE = re.compile(r"(点|线|区域|对象|对象集合)\[([^\[\]]+)\]")
+# 文本入口只接受已定义的完成描述；开放尾部字符串无法区分成果与新的指令。
+# 复杂条件由 JSON 字段显式划定边界，不靠关键词黑名单猜测语义。
+_TEXT_COMPLETIONS = frozenset({"取得影像", "取得四面影像", "取得照片", "覆盖全区"})
 
 
 class TaskInputError(ValueError):
@@ -129,6 +132,8 @@ def _parse_text(text: str) -> TaskDefinition | None:
                 if not match:
                     return None
                 action, targets, completion = match.group("action", "target", "completion")
+                if completion is not None and completion.strip() not in _TEXT_COMPLETIONS:
+                    return None
                 for value in targets.split("、"):
                     target = _parse_target(value.strip())
                     if target is None:
