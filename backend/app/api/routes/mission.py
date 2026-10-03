@@ -9,6 +9,8 @@ from app.api.schemas import (
     MissionReviewResponse,
 )
 from app.core.orchestration import plan_mission, replan_mission, review_mission
+from app.core.task_decomposition.dependency import TaskDependencyError
+from app.core.task_decomposition.parser import TaskInputError
 from app.data.scenarios import ScenarioNotFoundError
 
 router = APIRouter(prefix="/missions", tags=["missions"])
@@ -23,8 +25,12 @@ def create_mission_plan(request: MissionPlanRequest) -> MissionPlanResponse:
         )
     except ScenarioNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (TaskInputError, TaskDependencyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return MissionPlanResponse.model_validate(planning_result.model_dump())
+    return MissionPlanResponse.model_validate(
+        planning_result.model_dump(exclude_computed_fields=True)
+    )
 
 
 @router.post("/replan")
