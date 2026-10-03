@@ -2,6 +2,7 @@
 
 此接口处理本地 **mock PCD**，为后续规划提供几何障碍。当前不接真实传感器，也不批准飞行。
 Linux/macOS 环境准备见 [README](../README.zh-CN.md#安装)。
+前端客户端、状态机和 React 消费方式见 [环境交互接口](environment-interaction.md)。
 
 ## 请求与响应
 
