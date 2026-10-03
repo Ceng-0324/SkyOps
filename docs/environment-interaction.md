@@ -8,6 +8,10 @@
 
 - `frontend/src/api/pointCloud.ts`：请求、结果、障碍类型及 `detectObstacles(request)`。
   复用共享 `apiRequest`，不维护另一套 base URL、HTTP 错误处理或 fetch 客户端。
+  网络响应先按 unknown 校验：结果/障碍结构、唯一且非空的 ID、有限三维坐标、非负尺寸、
+  0–1 置信度、障碍类型、来源枚举、算法和带时区的可解析检测时间。允许额外字段，
+  不替无效字段补默认值；违反契约时抛出 `PointCloudResponseError`，store 进入 error、
+  result 保持 null，仍可 retry。HTTP 200 或合法 JSON 本身不代表检测成功。
 - `frontend/src/features/environment/environmentStore.ts`：`createEnvironmentStore(detector?)`。
   每个实例独立；默认使用真实 API，测试可注入相同签名的异步 detector。
 - `frontend/src/features/environment/useEnvironmentStore.ts`：共享 `environmentStore`、

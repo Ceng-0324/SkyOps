@@ -130,6 +130,64 @@ test("retry is a no-op outside error and stores are isolated", async () => {
   assert.equal(other.getState().status, "idle");
 });
 
+const invalidPayloads = [
+  null, [], {}, { result: null }, { result: [] }, { result: { obstacles: [] } },
+  ...["source", "detection_time", "algorithm", "obstacles"].map(key => {
+    const value = response(); delete value.result[key]; return value;
+  }),
+  ...["unknown", null, 1].map(source => response([], source)),
+  ...["", "not-a-date", 123].map(detection_time => ({ result: { ...response().result, detection_time } })),
+  ...["", null, 42].map(algorithm => ({ result: { ...response().result, algorithm } })),
+  { result: { ...response().result, obstacles: {} } },
+  ...[null, {}, { ...obstacle, id: "" }, { ...obstacle, id: 1 },
+    { ...obstacle, position: [1, 2] }, { ...obstacle, position: [1, 2, 3, 4] },
+    { ...obstacle, position: ["1", 2, 3] }, { ...obstacle, position: [null, 2, 3] },
+    { ...obstacle, size: [-1, 2, 3] }, { ...obstacle, confidence: 1.1 },
+    { ...obstacle, confidence: -0.1 }, { ...obstacle, confidence: "0.5" },
+    { ...obstacle, obstacle_type: null },
+  ].map(item => response([item])),
+  response([obstacle, obstacle]),
+];
+
+for (const [index, payload] of invalidPayloads.entries()) {
+  test(`malformed JSON response ${index} stays error, selectors are safe and retry recovers`, async (t) => {
+    t.mock.method(globalThis, "fetch", async () => Response.json(payload));
+    const store = createEnvironmentStore();
+    await store.getState().detect(request);
+    assert.equal(store.getState().status, "error");
+    assert.equal(store.getState().result, null);
+    assert.match(store.getState().error, /Invalid point-cloud response/);
+    assert.equal(selectSelectedObstacle(store.getState()), null);
+    assert.doesNotThrow(() => store.getState().selectObstacle("obstacle-1"));
+    await assert.rejects(detectObstacles(request), { name: "PointCloudResponseError" });
+    t.mock.method(globalThis, "fetch", async () => Response.json(response([], "mock")));
+    await store.getState().retry();
+    assert.equal(store.getState().status, "success");
+    assert.deepEqual(store.getState().result, response([], "mock").result);
+  });
+}
+
+for (const token of ["1e400", "-1e400"]) {
+  test(`non-finite JSON coordinate ${token} is rejected`, async (t) => {
+    const raw = JSON.stringify(response()).replace('"position":[1,2,3]', `"position":[${token},2,3]`);
+    t.mock.method(globalThis, "fetch", async () => new Response(raw));
+    const store = createEnvironmentStore();
+    await store.getState().detect(request);
+    assert.equal(store.getState().status, "error");
+    assert.equal(store.getState().result, null);
+  });
+}
+
+for (const source of ["mock", "simulated", "real"]) {
+  test(`valid ${source} response preserves fractional offset timestamp and additional fields`, async (t) => {
+    const payload = response([{ ...obstacle, position: [-1, 0, 2], size: [0, 0, 0] }], source);
+    payload.result.detection_time = "2026-10-03T12:00:00.123456+08:00";
+    payload.result.future_field = "preserved";
+    t.mock.method(globalThis, "fetch", async () => Response.json(payload));
+    assert.deepEqual(await detectObstacles(request), payload);
+  });
+}
+
 function deferred() {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
