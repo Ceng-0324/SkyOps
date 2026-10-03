@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       "/health": "http://127.0.0.1:8000",
       "/missions": "http://127.0.0.1:8000",
+      "/point-cloud": "http://127.0.0.1:8000",
     },
   },
 });
