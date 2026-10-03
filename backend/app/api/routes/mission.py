@@ -8,12 +8,31 @@ from app.api.schemas import (
     MissionReviewRequest,
     MissionReviewResponse,
 )
+from app.core.models.candidate_planning import CandidatePlanningRequest, CandidatePlanningResult
 from app.core.orchestration import plan_mission, replan_mission, review_mission
+from app.core.orchestration.mission_planner import plan_mission_candidates
 from app.core.task_decomposition.dependency import TaskDependencyError
 from app.core.task_decomposition.parser import TaskInputError
 from app.data.scenarios import ScenarioNotFoundError
 
 router = APIRouter(prefix="/missions", tags=["missions"])
+
+
+@router.post(
+    "/plan-candidates",
+    responses={
+        404: {"description": "Mission scenario not found"},
+        422: {"description": "Invalid task DSL, dependencies or planning geometry"},
+    },
+)
+def create_mission_candidates(request: CandidatePlanningRequest) -> CandidatePlanningResult:
+    """返回局部空间的三策略候选或显式澄清/阻塞；不授予飞行许可。"""
+    try:
+        return plan_mission_candidates(request)
+    except ScenarioNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (TaskInputError, TaskDependencyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/plan")
