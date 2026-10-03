@@ -150,6 +150,7 @@ class CandidatePlan(BaseModel):
     status: Literal["feasible", "infeasible", "no_remaining_tasks", "budget_exceeded"]
     task_order: list[TaskID]
     visits: list[ObservationVisit]
+    assumed_completed_task_ids: list[TaskID] = Field(default_factory=list)
     path: RoutePath | None = None
     score: PlanScore | None = None
     reasons: list[str] = Field(default_factory=list)
