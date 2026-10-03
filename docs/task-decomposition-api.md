@@ -61,3 +61,12 @@
 不支持的自由文本整体返回待澄清，不局部执行或套用默认任务。
 空白、超限、非法 JSON/重复字段和无效显式引用抛出 `TaskInputError`。
 现有 `MockLLMProvider` 只提供扁平关键词草稿且不表达顺序，本解析器不以它的默认目标替代任务树。
+
+## 依赖图
+
+`build_dependency_graph(TaskTree)` 生成 NetworkX DAG，未知引用、自依赖和执行环抛出
+`TaskDependencyError`。所有节点（包括独立任务）都保留；父子关系不额外生成执行边。
+`describe_dependencies` 提供稳定的节点、边、拓扑顺序与并行分组。
+每条边的 `prerequisite` 是前置任务，`dependent` 是后续任务。
+`blocked_tasks` 记录理解缺口，并向后继节点传播阻塞原因。
+`topological_order` 与 `parallel_groups` 只表示结构关系，不排除受阻节点，也不表示可以执行。

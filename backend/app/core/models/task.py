@@ -101,6 +101,23 @@ class TaskClarification(BaseModel):
     question: TaskText
 
 
+class TaskDependencyEdge(BaseModel):
+    """有向边：prerequisite 必须先于 dependent 完成。"""
+
+    prerequisite: TaskID
+    dependent: TaskID
+
+
+class TaskDependencyGraph(BaseModel):
+    """可序列化依赖结构；拓扑顺序与并行分组不是执行授权。"""
+
+    nodes: list[TaskID]
+    edges: list[TaskDependencyEdge]
+    topological_order: list[TaskID]
+    parallel_groups: list[list[TaskID]]
+    blocked_tasks: dict[TaskID, list[TaskText]]
+
+
 class TaskTree(BaseModel):
     """任务解析产物；parsed 仅表示语义字段齐备，不表示安全或可执行。"""
 
