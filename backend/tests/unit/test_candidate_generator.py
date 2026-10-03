@@ -98,6 +98,66 @@ def test_geometry_budget_failure_is_distinct(
     )
 
 
+def test_scoring_budget_failure_discards_already_computed_path(
+    candidate_request: CandidatePlanningRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 无障碍时路径可在预算内算完，但评分也必须使用同一预算。
+    candidate_request.raw_user_input = "检查对象[A]；完成条件：取得影像"
+    candidate_request.priority_task_ids = []
+    candidate_request.completed_task_ids = []
+    budgets: list[SearchBudget] = []
+
+    def path_only_budget() -> SearchBudget:
+        budget = SearchBudget(10)  # 三段路线检查 10 次；没有剩余评分预算。
+        budgets.append(budget)
+        return budget
+
+    monkeypatch.setattr(generator, "SearchBudget", path_only_budget)
+    plans = generate_candidate_plans(
+        parse_task_input(candidate_request.raw_user_input), candidate_request
+    )
+    assert all(budget.remaining == 0 for budget in budgets)
+    assert all(
+        plan.status == "budget_exceeded" and plan.path is None and plan.score is None
+        for plan in plans
+    )
+
+
+@pytest.mark.parametrize("task_count,samples,match", [(33, 1, "32 tasks"), (17, 16, "256 samples")])
+def test_expanded_task_workload_is_bounded(
+    candidate_request: CandidatePlanningRequest, task_count: int, samples: int, match: str
+) -> None:
+    node = json.loads(candidate_request.raw_user_input)["nodes"][0]
+    candidate_request.raw_user_input = json.dumps(
+        {"nodes": [node | {"id": f"task-{i}"} for i in range(task_count)]}
+    )
+    candidate_request.scene.targets[0].observation_points = [
+        (2, 1 + i / 10, 1) for i in range(samples)
+    ]
+    candidate_request.priority_task_ids = []
+    candidate_request.completed_task_ids = []
+    with pytest.raises(CandidateInputError, match=match):
+        generate_candidate_plans(
+            parse_task_input(candidate_request.raw_user_input), candidate_request
+        )
+
+
+def test_object_set_expands_all_references(candidate_request: CandidatePlanningRequest) -> None:
+    node = json.loads(candidate_request.raw_user_input)["nodes"][0]
+    node["target"] = {"kind": "object_set", "label": "建筑集合", "refs": ["A", "B"]}
+    candidate_request.raw_user_input = json.dumps({"nodes": [node]})
+    candidate_request.priority_task_ids = []
+    candidate_request.completed_task_ids = []
+    plans = generate_candidate_plans(
+        parse_task_input(candidate_request.raw_user_input), candidate_request
+    )
+    for plan in plans:
+        assert plan.status == "feasible"
+        assert {(visit.target_ref, visit.sample_index) for visit in plan.visits} == {
+            (ref, index) for ref in ["A", "B"] for index in range(2)
+        }
+
+
 def test_equivalent_single_task_routes_are_not_disguised_as_alternatives(
     candidate_request: CandidatePlanningRequest,
 ) -> None:
