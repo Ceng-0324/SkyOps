@@ -63,6 +63,7 @@ def candidate_request() -> CandidatePlanningRequest:
             "scene": {
                 "coordinate_frame": "local_cartesian_m",
                 "source": "mock",
+                "altitude_origin_m": 0,
                 "bounds": {"minimum": [0, 0, 0], "maximum": [10, 10, 4]},
                 "start": [1, 1, 1],
                 "clearance_m": 0.2,

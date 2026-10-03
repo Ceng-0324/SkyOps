@@ -9,8 +9,18 @@ from app.core.models import (
     MissionTask,
     RiskItem,
 )
+from app.core.models.candidate_planning import (
+    CandidatePlanningRequest,
+    CandidatePlanningResult,
+    PlanningBounds,
+)
 from app.core.orchestration.models import MissionPlanningResult
 from app.core.rules import evaluate_hard_constraints
+from app.core.strategy_composer.generator import (
+    CandidateInputError,
+    generate_candidate_plans,
+    prepare_task_visits,
+)
 from app.core.task_decomposition.dependency import describe_dependencies
 from app.core.task_decomposition.parser import parse_task_input
 from app.data.scenarios import load_mission_scenario
@@ -93,3 +103,104 @@ def build_mission_planning_result(
         task_tree=task_tree,
         task_dependencies=task_dependencies,
     )
+
+
+def plan_mission_candidates(request: CandidatePlanningRequest) -> CandidatePlanningResult:
+    """生成基于输入几何的仿真候选，保留规则证据、澄清和各策略失败原因。"""
+    scenario = load_mission_scenario(request.scenario_id)
+    tree = parse_task_input(request.raw_user_input)
+    # 即使随后被硬约束阻止，也不把非法依赖变成合法任务草稿。
+    describe_dependencies(tree)
+    environment = EnvironmentState.model_validate(scenario["environment_state"])
+    airspace = AirspaceConstraint.model_validate(scenario["airspace_constraint"])
+    drone = DroneState.model_validate(scenario["drone_state"])
+    rules = evaluate_hard_constraints(environment, airspace, drone)
+    result = CandidatePlanningResult(
+        status="blocked",
+        task_tree=tree,
+        rule_evaluation=rules,
+        scene=request.scene,
+        scenario_id=request.scenario_id,
+        rule_sources={
+            "environment": environment.source_type,
+            "airspace": airspace.source_type,
+            "drone": drone.source_type,
+        },
+    )
+    result.limitations.append(
+        "场景环境与空域规则是参考数据，不证明调用者局部空间具备真实作业许可。"
+    )
+    if airspace.approval_required:
+        result.limitations.append("场景要求空域审批；候选计算不代表审批已经完成。")
+    if not rules.passed or not drone.available_for_mission:
+        result.reasons = [check.reason for check in rules.checks if not check.passed]
+        if not drone.available_for_mission:
+            result.reasons.append("Drone is not available for this mission")
+        return result
+    if tree.status != "parsed":
+        result.status = "needs_clarification"
+        result.clarifications = [question.question for question in tree.clarifications]
+        return result
+    try:
+        prepare_task_visits(tree, request)
+    except CandidateInputError as exc:
+        result.status, result.clarifications = "needs_clarification", [str(exc)]
+        return result
+
+    active_request = request.model_copy(deep=True)
+    bounds = active_request.scene.bounds
+    if airspace.altitude_limit_m is not None:
+        origin = active_request.scene.altitude_origin_m
+        if origin is None:
+            result.status = "needs_clarification"
+            result.clarifications = [
+                "Provide altitude_origin_m in the same vertical reference "
+                "as the scenario altitude limit"
+            ]
+            return result
+        ceiling = min(bounds.maximum[2], airspace.altitude_limit_m - origin)
+        if ceiling <= bounds.minimum[2]:
+            result.reasons = ["Planning bounds contain no volume below the scenario altitude limit"]
+            return result
+        effective = PlanningBounds(minimum=bounds.minimum, maximum=(*bounds.maximum[:2], ceiling))
+        points = [
+            active_request.scene.start,
+            *(
+                point
+                for target in active_request.scene.targets
+                for point in target.observation_points
+            ),
+        ]
+        if any(not effective.contains(point) for point in points):
+            result.reasons = ["Start or observation sample exceeds the scenario altitude limit"]
+            return result
+        active_request.scene.bounds = effective
+    result.effective_bounds = active_request.scene.bounds
+    result.candidates = generate_candidate_plans(tree, active_request)
+    for candidate in result.candidates:
+        if (
+            candidate.score
+            and candidate.score.estimated_duration_seconds > drone.estimated_endurance_minutes * 60
+        ):
+            candidate.status = "infeasible"
+            candidate.path, candidate.score, candidate.equivalent_to = None, None, None
+            candidate.reasons = [
+                "Estimated round-trip duration exceeds the scenario drone endurance"
+            ]
+    feasible = [candidate for candidate in result.candidates if candidate.status == "feasible"]
+    if feasible:
+        result.status = "candidates"
+        result.recommended_strategy = max(
+            feasible, key=lambda candidate: candidate.score.total if candidate.score else -1
+        ).strategy
+    elif any(candidate.status == "no_remaining_tasks" for candidate in result.candidates):
+        result.status = "candidates"
+        result.reasons = [
+            "No supplementary flight is needed according to the declared completion record"
+        ]
+    else:
+        result.status = "no_feasible_plan"
+        result.reasons = [
+            "No strategy produced a complete route within the given constraints and budget"
+        ]
+    return result

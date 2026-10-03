@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.models.common import DataSourceType
 from app.core.models.point_cloud import ObstacleDetectionResult
 from app.core.models.task import MAX_TASK_INPUT_LENGTH, TaskID, TaskText, TaskTree
 from app.core.rules.models import RuleEvaluationResult
@@ -61,11 +62,12 @@ class PlanningScene(BaseModel):
     source: Literal["mock", "simulated"]
     bounds: PlanningBounds
     start: Position
+    altitude_origin_m: Coordinate | None = None
     targets: list[TargetGeometry] = Field(max_length=32)
     obstacle_detection: ObstacleDetectionResult
     grid_resolution_m: float = Field(default=1, ge=0.1, le=100)
     clearance_m: float = Field(ge=0, le=100)
-    cruise_speed_mps: float = Field(gt=0, le=30)
+    cruise_speed_mps: float = Field(ge=0.1, le=30)
     observation_seconds: float = Field(default=5, ge=0, le=600)
 
     @model_validator(mode="after")
@@ -164,10 +166,14 @@ class CandidatePlanningResult(BaseModel):
     status: Literal["candidates", "needs_clarification", "blocked", "no_feasible_plan"]
     task_tree: TaskTree
     rule_evaluation: RuleEvaluationResult
+    scenario_id: str
+    rule_sources: dict[str, DataSourceType]
     candidates: list[CandidatePlan] = Field(default_factory=list)
     clarifications: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
     recommended_strategy: StrategyName | None = None
     scene: PlanningScene
+    effective_bounds: PlanningBounds | None = None
     source: Literal["simulated"] = "simulated"
     execution_authorized: Literal[False] = False
     limitations: list[str] = Field(
