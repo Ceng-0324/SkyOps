@@ -34,6 +34,12 @@
 
 ---
 
+## Current implementation
+
+The dark dashboard and Task / Scene / Plan workspace implement the F01–F03 simulation loop: structured task parsing, point-cloud obstacle detection, and candidate route comparison. The integrated image workflow currently uses a paired mock campus and target A; real registration, full multimodal input, and persistent planning results are future work.
+
+Risk, incident and review capabilities remain in an explicitly separate scenario reference tool. This is not completion of the full five-view redesign. See [development status and acceptance gates](docs/DEVELOPMENT_PLAN.md); local verification does not replace PR CI and merge approval.
+
 ## Overview
 
 **SkyOps** is a spatial intelligence-powered autonomous coordination system for low-altitude operations. It combines world models, multi-agent collaboration, and spatial voice interaction to enable task-level autonomous decision-making across diverse scenarios.
