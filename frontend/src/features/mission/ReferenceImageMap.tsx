@@ -19,6 +19,8 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
   const svg = useRef<SVGSVGElement>(null);
   const [camera, setCamera] = useState(initialCamera);
   const [layers, setLayers] = useState({ image: true, object: true, points: true });
+  const [imageStatus, setImageStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [imageAttempt, setImageAttempt] = useState(0);
   const [layerMenu, setLayerMenu] = useState(false);
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
@@ -43,6 +45,11 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
   useEffect(() => {
     if (mode) { setLayers(l => ({ ...l, points: true })); svg.current?.focus({ preventScroll: true }); }
   }, [mode]);
+
+  function retryImage() {
+    setImageStatus("loading");
+    setImageAttempt(attempt => attempt + 1);
+  }
 
   function place(x: number, y: number) {
     if (!mode) return;
@@ -108,7 +115,9 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
         const offsets: Record<string, [number, number]> = { ArrowLeft: [-40, 0], ArrowRight: [40, 0], ArrowUp: [0, -40], ArrowDown: [0, 40] };
         if (e.key in offsets) { e.preventDefault(); const [x, y] = offsets[e.key]; setCamera(c => ({ ...c, x: Math.min(1280, Math.max(-c.size, c.x + x)), y: Math.min(1280, Math.max(-c.size, c.y + y)) })); }
       }}>
-      {layers.image && <image className="ws-imagery" href={imageUrl} x="0" y="0" width="1280" height="1280" />}
+      {layers.image && <image key={imageAttempt} className="ws-imagery" data-load-state={imageStatus}
+        href={imageAttempt ? `${imageUrl}?retry=${imageAttempt}` : imageUrl} x="0" y="0" width="1280" height="1280"
+        onLoad={() => setImageStatus("ready")} onError={() => setImageStatus("error")} />}
       {layers.object && <g data-object role="button" tabIndex={0} aria-label="查看示例建筑 A 详情" className={`ws-map-object ${spatial.bound ? "is-bound" : ""}`}
         onClick={() => { if (!mode) onSelect("object"); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); onSelect("object"); } }}>
         <polygon points="681,636 927,678 877,891 625,852" /><circle cx="681" cy="636" r="20" /><text x="681" y="636" className="ws-object-letter">A</text>
@@ -131,11 +140,17 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
       if (!search.trim()) return;
       if (/^(?:a|示例建筑\s*a|建筑)$/i.test(search.trim())) { setLayers(l => ({ ...l, object: true })); setCamera(initialCamera); onSelect("object"); setNotice(""); }
       else setNotice("当前参考影像只标注了“示例建筑 A”，可输入 A 查找。");
-    }}><Search size={15} /><input aria-label="查找场景对象" placeholder="查找场景对象…" value={search} onChange={e => setSearch(e.target.value)} /><button type="submit" aria-label="查找对象"><Search size={14} /></button></form><span className="ws-map-tag">参考底图 · 未配准</span></div>
+    }}><Search size={15} /><input aria-label="查找场景对象" placeholder="查找场景对象…" value={search} onChange={e => setSearch(e.target.value)} /><button type="submit" aria-label="查找对象"><Search size={14} /></button></form><span className="ws-map-tag">{!layers.image ? "影像已隐藏" : imageStatus === "error" ? "影像不可用" : imageStatus === "loading" ? "影像加载中" : "参考底图"} · 未配准</span></div>
     <div className="ws-map-tools"><button aria-label="地图图层" aria-expanded={layerMenu} onClick={() => setLayerMenu(!layerMenu)}><Layers size={18} /></button><div><button aria-label="放大地图" onClick={() => zoom(1 / 1.25)}><Plus size={18} /></button><button aria-label="缩小地图" onClick={() => zoom(1.25)}><Minus size={18} /></button><button aria-label="恢复初始视图" onClick={() => setCamera(initialCamera)}><Focus size={18} /></button></div></div>
-    {layerMenu && <fieldset className="ws-layers"><legend>地图图层</legend>{([["image", "参考影像"], ["object", "示例作业对象"], ["points", "观察点与起止点"]] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={layers[key]} onChange={e => setLayers({ ...layers, [key]: e.target.checked })} />{label}</label>)}</fieldset>}
+    {layerMenu && <fieldset className="ws-layers"><legend>地图图层</legend>{([["image", "参考影像"], ["object", "示例作业对象"], ["points", "观察点与起止点"]] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={layers[key]} onChange={e => {
+      if (key === "image" && e.target.checked) retryImage();
+      setLayers({ ...layers, [key]: e.target.checked });
+    }} />{label}</label>)}</fieldset>}
+    {layers.image && imageStatus !== "ready" && <div className="ws-map-image-status" role={imageStatus === "error" ? "alert" : "status"}>
+      {imageStatus === "error" ? <><strong>参考影像加载失败</strong><p>当前仅显示人工标记，不可依赖影像定位。</p><button className="ws-text-button" aria-label="重试加载参考影像" onClick={retryImage}>重试加载</button></> : <p>正在加载参考影像…</p>}
+    </div>}
     {mode ? <div className="ws-map-edit" role="status"><div><strong>{mode === "observation" ? "添加观察点" : "设置起点 / 返回点"}</strong><p>点击地图放置；Enter 在视图中心放置</p></div><button onClick={onFinish}>完成</button></div>
-      : !spatial.bound && <p className="ws-map-tip">点击示例建筑，查看详情并绑定作业目标</p>}
+      : !spatial.bound && (!layers.image || imageStatus === "ready") && <p className="ws-map-tip">点击示例建筑，查看详情并绑定作业目标</p>}
     {notice && <p className="ws-map-notice" role="status">{notice}<button aria-label="关闭地图提示" onClick={() => setNotice("")}>关闭</button></p>}
     <div className="ws-map-legend"><span><i className="ws-legend-object" />示例作业对象</span><span><i className="ws-legend-point" />观察点</span><span><i className="ws-legend-start" />起点 / 返回点</span><span className="ws-map-instructions">拖动浏览 · 滚轮缩放</span></div>
   </>;

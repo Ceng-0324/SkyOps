@@ -141,6 +141,8 @@ textarea.ws-task-textarea { min-height: 180px; }
 .ws-layers legend { float: left; width: 100%; font-size: 13px; margin-bottom: 8px; }
 .ws-layers label { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 12px; clear: both; }
 .ws-map-tip { position: absolute; left: 20px; top: 76px; color: #dcecf5; background: #172d39f5; border: 1px solid #668a9c; border-radius: 5px; padding: 8px 11px; font-size: 12px; max-width: calc(100% - 90px); pointer-events: none; }
+.ws-map-image-status { position: absolute; top: 76px; left: 20px; width: 300px; max-width: calc(100% - 90px); padding: 10px 12px; border: 1px solid #8a7654; border-radius: 5px; background: #383127; color: #f2d4a4; font-size: 12px; line-height: 1.7; z-index: 7; }
+.ws-map-image-status .ws-text-button { margin-top: 6px; }
 .ws-map-legend { position: absolute; bottom: 20px; left: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 15px; padding: 9px 11px; background: #17222eef; border: 1px solid #526c80; border-radius: 5px; color: #d0e0ed; font-size: 11px; max-width: calc(100% - 40px); pointer-events: none; }
 .ws-map-legend > span { display: flex; align-items: center; gap: 5px; }
 .ws-map-legend i { width: 10px; height: 10px; display: block; }
@@ -213,6 +215,7 @@ textarea.ws-task-textarea { min-height: 180px; }
   .ws-map-tools { right: 12px; top: 14px; }
   .ws-map-tools button { width: 32px; height: 34px; }
   .ws-map-tip { left: 14px; max-width: calc(100% - 74px); font-size: 11px; }
+  .ws-map-image-status { left: 14px; max-width: calc(100% - 74px); }
   .ws-inspector { top: 65px; left: 12px; right: 12px; width: auto; max-width: none; max-height: calc(100% - 128px); padding: 16px; }
   .ws-map-legend { left: 12px; bottom: 12px; max-width: calc(100% - 24px); gap: 6px 10px; font-size: 9px; }
   .ws-map-edit { bottom: 76px; left: 12px; max-width: calc(100% - 24px); gap: 12px; }

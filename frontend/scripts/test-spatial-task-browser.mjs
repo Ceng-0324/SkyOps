@@ -155,6 +155,27 @@ try {
   assert.equal(await evaluate("document.querySelector('[data-testid=reference-map]').getAttribute('viewBox')"),originalView);
   await click('button[aria-label="地图图层"]'); await click('.ws-layers input');
   assert.equal(await evaluate("document.querySelector('svg image')===null"),true); await click('.ws-layers input'); await click('button[aria-label="地图图层"]');
+  // A real failed image request must be visible in the task view and recover without changing the draft.
+  await send('Network.enable');
+  await send('Network.setCacheDisabled', { cacheDisabled: true });
+  await send('Network.setBlockedURLs', { urls: ['*workspace-map*.jpg*'] });
+  const beforeImageFailure = (await saved()).spatial;
+  await click('button[aria-label="地图图层"]');
+  await click('.ws-layers input'); await click('.ws-layers input');
+  await click('button[aria-label="地图图层"]');
+  await wait("document.querySelector('.ws-map-image-status[role=alert]')");
+  assert.ok(await evaluate("document.querySelector('.ws-map-image-status').textContent.includes('不可依赖影像定位')"));
+  assert.deepEqual((await saved()).spatial, beforeImageFailure);
+  await click('button[aria-label="重试加载参考影像"]');
+  await wait("document.querySelector('.ws-map-image-status[role=alert]')");
+  await viewport(390, 844); await click('.ws-collapse'); await layout();
+  assert.ok(await evaluate("(() => { const el=document.querySelector('[aria-label=重试加载参考影像]'), r=el.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight && el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); })()"), 'Image retry remains reachable on mobile');
+  await send('Network.setBlockedURLs', { urls: [] });
+  await click('button[aria-label="重试加载参考影像"]');
+  await wait("document.querySelector('.ws-imagery')?.getAttribute('data-load-state')==='ready' && !document.querySelector('.ws-map-image-status')");
+  assert.deepEqual((await saved()).spatial, beforeImageFailure);
+  await viewport(1600, 1160); await click('.ws-collapse');
+  await send('Network.setCacheDisabled', { cacheDisabled: false });
   // Both panels support mouse resizing plus bounded keyboard alternatives.
   const handle=await evaluate("(()=>{const r=document.querySelector('[aria-label=调整任务面板宽度]').getBoundingClientRect();return{x:r.x+4,y:400}})()");
   await send('Input.dispatchMouseEvent',{type:'mousePressed',...handle,button:'left',clickCount:1});
