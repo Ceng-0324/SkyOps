@@ -18,7 +18,7 @@ import "../../styles/spatial-workspace.css";
 import "../../styles/scene-workspace.css";
 import "../../styles/plan-workspace.css";
 
-const ReferenceConsole = lazy(() => import("./MissionConsole").then(m => ({ default: m.MissionConsole })));
+const ReferenceConsole = lazy(() => import("./ScenarioReferenceConsole").then(m => ({ default: m.ScenarioReferenceConsole })));
 type DraftUpdate = Pick<MissionDraft, "rawInput" | "spatial" | "scene">;
 
 export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, visible }: {

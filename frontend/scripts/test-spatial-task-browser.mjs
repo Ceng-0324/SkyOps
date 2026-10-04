@@ -170,6 +170,21 @@ try {
   const beforeReference=(await saved()).spatial;
   await button('打开独立场景参考工具');
   await wait("document.querySelector('.ws-reference main')");
+  await button('生成任务方案');
+  await wait("document.querySelector('.ws-reference main').textContent.includes('任务方案') && !document.querySelector('#mission-task-input')");
+  const referenceView = async index => {
+    await click(`.ws-reference main nav button:nth-child(${index})`);
+    await evaluate("new Promise(r=>requestAnimationFrame(r))");
+  };
+  await referenceView(3);
+  await wait("document.querySelector('.ws-reference .recharts-surface')");
+  assert.ok(await evaluate("document.querySelector('.ws-reference main').textContent.includes('风险推理')"));
+  await referenceView(4);
+  assert.ok(await evaluate("document.querySelector('.ws-reference main').textContent.includes('异常重规划')"));
+  await referenceView(5);
+  await wait("document.querySelector('.ws-reference .recharts-surface')");
+  assert.ok(await evaluate("document.querySelector('.ws-reference main').textContent.includes('任务复盘')"));
+
   await button('返回任务编辑');
   assert.deepEqual((await saved()).spatial,beforeReference);
   await click('button[aria-label="返回工作台"]');

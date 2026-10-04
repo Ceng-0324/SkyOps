@@ -29,6 +29,5 @@ build/
 .idea/
 .vscode/
 
-
-
- 
+# Local UI review image (overwritten in place, not a source asset)
+/skyops-workspace-preview.png
