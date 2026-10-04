@@ -40,9 +40,7 @@ def test_evaluation_scores_exposes_one_score_per_metric() -> None:
 
 
 def test_hard_constraint_pass_rate_is_blocking_safety_gate() -> None:
-    hard_constraint_contract = get_metric_contract(
-        EvaluationMetricName.HARD_CONSTRAINT_PASS_RATE
-    )
+    hard_constraint_contract = get_metric_contract(EvaluationMetricName.HARD_CONSTRAINT_PASS_RATE)
     plan_efficiency_contract = get_metric_contract(EvaluationMetricName.PLAN_EFFICIENCY)
 
     assert hard_constraint_contract.role == EvaluationMetricRole.BLOCKING_SAFETY_GATE
@@ -71,9 +69,7 @@ def test_scoring_policy_disallows_llm_judge_for_phase_3_contracts() -> None:
 
 
 def test_scoring_policy_requires_unique_metric_contracts() -> None:
-    hard_constraint_contract = get_metric_contract(
-        EvaluationMetricName.HARD_CONSTRAINT_PASS_RATE
-    )
+    hard_constraint_contract = get_metric_contract(EvaluationMetricName.HARD_CONSTRAINT_PASS_RATE)
 
     with pytest.raises(ValidationError, match="must be unique"):
         EvaluationScoringPolicy(

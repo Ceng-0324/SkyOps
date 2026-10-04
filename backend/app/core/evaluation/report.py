@@ -107,11 +107,7 @@ def _brief_case_result(
 def _failure_reasons(result: EvaluationResult) -> list[str]:
     reasons = [
         *result.failure_reasons,
-        *[
-            reason
-            for metric in result.metric_scores
-            for reason in metric.failure_reasons
-        ],
+        *[reason for metric in result.metric_scores for reason in metric.failure_reasons],
     ]
     deduplicated_reasons = list(dict.fromkeys(reason for reason in reasons if reason.strip()))
 

@@ -10,4 +10,3 @@ class MissionReview(BaseModel):
     makeup_flight_plan: list[str] = Field(default_factory=list)
     human_review_checklist: list[str] = Field(default_factory=list)
     next_mission_optimizations: list[str] = Field(default_factory=list)
-

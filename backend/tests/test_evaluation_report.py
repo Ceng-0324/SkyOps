@@ -192,8 +192,7 @@ def test_p1_m_040_report_excludes_missing_optional_metrics_from_averages() -> No
     )
 
     case_results_by_id = {
-        case_result["case_id"]: case_result
-        for case_result in report["case_results"]
+        case_result["case_id"]: case_result for case_result in report["case_results"]
     }
 
     assert report["hard_constraint_pass_rate"] == 0.9
@@ -216,10 +215,9 @@ def test_p1_m_040_generate_report_runs_all_loaded_cases_and_serializes_json() ->
     assert report["case_count"] == len(fixtures)
     assert report["passed_count"] + report["failed_count"] == report["case_count"]
     assert len(report["case_results"]) == len(fixtures)
-    assert {
-        fixture.evaluation_case.case_id
-        for fixture in fixtures
-    } == {case_result["case_id"] for case_result in report["case_results"]}
+    assert {fixture.evaluation_case.case_id for fixture in fixtures} == {
+        case_result["case_id"] for case_result in report["case_results"]
+    }
     assert report["report_type"] == "mock_simulated_evaluation"
     assert report["data_origin"] == "mock/simulated"
     assert report["uses_real_api"] is False

@@ -59,7 +59,7 @@
 
 ### 本地验收与发布门槛
 
-- [x] 后端全套 438 项测试及 Ruff lint。
+- [x] 后端全套 438 项测试、Ruff lint 及格式检查。
 - [x] 前端 95 项测试、TypeScript 与生产构建。
 - [x] 首页、F01 编辑、F02 场景、F03 方案四条浏览器回归；桌面、窄桌面及手机。
 - [x] 独立场景参考工具仍可运行任务、风险图表、事件和复盘；不冒充当前候选的执行结果。
@@ -71,6 +71,7 @@
 cd backend
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 # 临时验证工具，不添加项目核心依赖；按目录采集，避免模块探测提前导入 Pydantic。
 uv run --with coverage python -m coverage run --source=app -m pytest
 uv run --with coverage python -m coverage report --include='app/core/point_cloud/*,app/core/models/point_cloud.py,app/api/routes/point_cloud.py,app/api/schemas/point_cloud.py' --fail-under=80
@@ -85,8 +86,8 @@ SKYOPS_UI_BASE_URL=http://127.0.0.1:5173 npm run test:browser
 ../backend/.venv/bin/python scripts/smoke-environment.py --workspace
 ```
 
-当前历史工程债：`ruff format --check .` 有 30 个既有文件不合规；本次前端收尾不混入全仓后端格式重排。
-这是独立格式债，不将其标记为通过。UI 截图仅保留根目录 `skyops-workspace-preview.png`，属于本地效果图，不提交。
+30 个既有后端文件的格式债已清理，CI 增加 `ruff format --check .` 防止回归。
+UI 截图仅保留根目录 `skyops-workspace-preview.png`，属于本地效果图，不提交。
 
 ---
 

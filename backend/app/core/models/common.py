@@ -21,4 +21,3 @@ class Explanation(BaseModel):
     inferences: list[str] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
     human_confirmation_required: list[str] = Field(default_factory=list)
-

@@ -90,8 +90,7 @@ def test_create_replan_decision_returns_mock_contract() -> None:
     assert decision["human_takeover_required"] is True
     assert "preserve collected imagery and telemetry" in decision["actions"]
     assert all(
-        alternative.startswith("rejected:")
-        for alternative in decision["alternatives_considered"]
+        alternative.startswith("rejected:") for alternative in decision["alternatives_considered"]
     )
 
 

@@ -30,4 +30,3 @@ def load_mission_scenario(scenario_id: str) -> dict[str, Any]:
         raise ValueError(f"Mission scenario id mismatch: {scenario_id}")
 
     return loaded
-

@@ -8,4 +8,3 @@ __all__ = [
     "evaluate_hard_constraints",
     "load_safety_rule_config",
 ]
-

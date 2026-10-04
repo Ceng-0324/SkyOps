@@ -156,14 +156,8 @@ def case_direction_text(case: EvaluationCase) -> str:
 
 def assert_not_cv_detection_case(case: EvaluationCase) -> None:
     combined_text = case_direction_text(case)
-    banned_terms = [
-        term
-        for term in BANNED_CV_TARGET_TERMS
-        if term in combined_text
-    ]
-    assert not banned_terms, (
-        f"{case.case_id} appears to target CV defect detection: {banned_terms}"
-    )
+    banned_terms = [term for term in BANNED_CV_TARGET_TERMS if term in combined_text]
+    assert not banned_terms, f"{case.case_id} appears to target CV defect detection: {banned_terms}"
 
 
 def assert_baseline_fixture(fixture: EvaluationCaseFixture) -> None:
@@ -395,8 +389,7 @@ def test_load_all_evaluation_case_fixtures_includes_device_state_cases() -> None
 
         if case_id in makeup_case_ids:
             assert any(
-                behavior.makeup_flight_expected
-                for behavior in case.expected_response_behaviors
+                behavior.makeup_flight_expected for behavior in case.expected_response_behaviors
             )
             assert any(
                 marker in f"{safety_notes} {contingency}"
@@ -440,10 +433,7 @@ def test_load_all_evaluation_case_fixtures_includes_incident_injection_cases() -
         assert event.event_type == expected_event_type
         assert "incident_injection" in case.tags
         assert_expected_actions_exclude(case, forbidden_expected_action_phrases)
-        assert any(
-            behavior.makeup_flight_expected
-            for behavior in case.expected_response_behaviors
-        )
+        assert any(behavior.makeup_flight_expected for behavior in case.expected_response_behaviors)
         assert any(
             marker in f"{safety_notes} {contingency}"
             for marker in ["uncovered", "makeup flight trigger", "incomplete segment"]

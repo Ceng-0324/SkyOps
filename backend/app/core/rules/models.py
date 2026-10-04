@@ -28,4 +28,3 @@ class RuleEvaluationResult(BaseModel):
     @property
     def risks(self) -> list[RiskItem]:
         return [check.risk for check in self.checks if check.risk is not None]
-

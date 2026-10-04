@@ -236,4 +236,3 @@ def evaluate_airspace(
         else "Airspace is not flyable under current constraints.",
         evidence=[airspace_constraint.explanation],
     )
-

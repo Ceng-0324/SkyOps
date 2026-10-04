@@ -13,4 +13,3 @@ def health_check() -> dict[str, str]:
         "service": settings.service_name,
         "mode": settings.app_mode,
     }
-
