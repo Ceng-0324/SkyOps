@@ -71,6 +71,10 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   useEffect(() => { setHeight(point ? String(point.z) : ""); setHeightError(""); }, [point?.id, point?.z]);
   useEffect(() => { if (showInspector) inspectorHeading.current?.focus({ preventScroll: true }); }, [selected, environment.selectedObstacleId, showInspector]);
 
+  useEffect(() => {
+    if (section === "scene" && showInspector && !narrow && !collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300) setCollapsed(true);
+  }, [section, showInspector, narrow, collapsed, viewport, leftWidth, rightWidth]);
+
   function update(next: SpatialTaskDraft, input = rawInput) {
     setSpatial(next); setRawInput(input);
     const nextInput = taskInputFor(next, input);
@@ -98,8 +102,14 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   function closeDetails() {
     setSelected(null); environment.selectObstacle(null);
     const opener = inspectorOpener.current;
-    if (opener?.isConnected && opener.getClientRects().length) opener.focus({ preventScroll: true });
-    else heading.current?.focus({ preventScroll: true });
+    const obstacleId = environment.selectedObstacleId;
+    requestAnimationFrame(() => {
+      if (opener?.isConnected && opener.getClientRects().length && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
+      else {
+        const marker = [...document.querySelectorAll<HTMLButtonElement>("[data-scene-obstacle]")].find(el => el.dataset.sceneObstacle === obstacleId && !el.closest("[inert]"));
+        (marker ?? heading.current)?.focus({ preventScroll: true });
+      }
+    });
   }
   function editMode(next: MapMode) { setMode(next); setSelected(null); setNotice(""); if (narrow) setCollapsed(true); }
   async function parse() {
@@ -113,7 +123,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
     {reference ? <div className="ws-reference"><header><button className="ws-button" onClick={() => setReference(false)}><ArrowLeft size={16} />返回任务编辑</button><p>独立场景参考工具 · 此处示例坐标与当前影像点位未关联</p></header><Suspense fallback={<p className="ws-loading">加载参考工具…</p>}><ReferenceConsole initialTaskInput={rawInput} /></Suspense></div>
       : <div className={`ws-shell ${collapsed ? "ws-collapsed" : ""}`}>
         <aside className="ws-rail"><Layers size={28} /><nav aria-label="工作区导航"><button aria-label="返回总览工作台" onClick={onBack}><LayoutDashboard size={19} /></button><button aria-label="当前任务" aria-current="page" onClick={() => changeSection("task")}><Folders size={19} /></button></nav><span className="ws-rail-source">SIM</span></aside>
-        <header className="ws-header"><button className="ws-icon" onClick={onBack} aria-label="返回工作台"><ArrowLeft size={18} /></button><span className="ws-header-project">个人工作区</span><h1 ref={heading} tabIndex={-1}>{draft.name}</h1><span className="ws-draft-tag">草稿</span><span className="ws-header-source">模拟作业</span><button className="ws-collapse" aria-label={collapsed ? "展开任务面板" : "收起任务面板"} aria-expanded={!collapsed} aria-controls="ws-task-panel" onClick={() => { setCollapsed(!collapsed); if (narrow) { setSelected(null); environment.selectObstacle(null); } }}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span>{collapsed ? "展开任务面板" : "收起任务面板"}</span></button></header>
+        <header className="ws-header"><button className="ws-icon" onClick={onBack} aria-label="返回工作台"><ArrowLeft size={18} /></button><span className="ws-header-project">个人工作区</span><h1 ref={heading} tabIndex={-1}>{draft.name}</h1><span className="ws-draft-tag">草稿</span><span className="ws-header-source">模拟作业</span><button className="ws-collapse" aria-label={collapsed ? "展开任务面板" : "收起任务面板"} aria-expanded={!collapsed} aria-controls="ws-task-panel" onClick={() => { setCollapsed(!collapsed); if (narrow || (section === "scene" && collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300)) { setSelected(null); environment.selectObstacle(null); } }}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span>{collapsed ? "展开任务面板" : "收起任务面板"}</span></button></header>
         <aside className="ws-task-panel" id="ws-task-panel" inert={collapsed}>
           <nav className="ws-tabs" aria-label="任务准备阶段"><button aria-current={section === "task" ? "page" : undefined} onClick={() => changeSection("task")}><FileText size={15} />任务</button><button aria-current={section === "scene" ? "page" : undefined} onClick={() => changeSection("scene")}><Layers size={15} />场景</button><button disabled title="方案比较将在后续模块接入"><Route size={15} />方案</button></nav>
           {section === "scene" ? <ScenePanel input={sceneInput} state={environment} onChange={updateScene} onSelect={selectObstacle} onShowMap={() => { setCollapsed(true); requestAnimationFrame(() => document.querySelector<HTMLElement>(".ws-scene-canvas")?.focus()); }} storageError={storageError} /> : <>

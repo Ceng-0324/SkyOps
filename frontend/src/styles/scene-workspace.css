@@ -47,6 +47,7 @@
 .ws-scene-map .leaflet-control-container { display: none; }
 @media(max-width:1000px) and (min-width:761px) {
   .ws-scene-map.has-detail { right: 0 !important; }
+  .ws-scene-map.has-detail .ws-scene-map-tools { grid-auto-flow: column; }
 }
 @media(max-width:760px) {
   .ws-scene-map-heading { top: 14px; left: 12px; padding: 7px 9px; gap: 7px; max-width: calc(100% - 67px); }
@@ -71,3 +72,7 @@
   .ws-scene-demo-point { padding: 0 4px; min-width: 24px; justify-content: center; }
   .ws-scene-target-label { padding: 3px 7px; }
 }
+
+.ws-scene-image-error { position: absolute; top: 120px; left: 20px; max-width: calc(100% - 90px); padding: 10px 12px; background: #18222ef5; border: 1px solid #c0a16e; border-radius: 5px; color: #edcf9c; font-size: 12px; }
+.ws-scene-image-error button { margin-top: 8px; }
+@media(max-width:760px) { .ws-scene-image-error { top: 150px; left: 12px; } }

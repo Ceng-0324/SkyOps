@@ -103,6 +103,38 @@ try {
   assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
   await button('影像叠加');
   await viewport(1600,1160); await click('.ws-collapse');
+  // The floating inspector must not cover the selected marker, even after resizing.
+  const selectedMarkerVisible = async () => wait(`(()=>{const el=document.querySelector('[data-scene-obstacle="obs_2"]'),r=el?.getBoundingClientRect();return r && el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})`);
+  for (const width of [1600,1000,800]) {
+    await viewport(width,900);
+    await click('[data-obstacle-row="obs_2"]');
+    await selectedMarkerVisible();
+    await evaluate("document.querySelector('.ws-inspector [role=separator]').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))");
+    await selectedMarkerVisible(); await layout();
+    assert.ok(await evaluate("[...document.querySelectorAll('.ws-scene-map-tools button')].every(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})"), 'Map tools stay above the inspector');
+    await shot(`scene-mock-${width}-wide-detail`);
+    await evaluate("document.querySelector('.ws-inspector [role=separator]').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))");
+    await button('定位选中障碍'); await selectedMarkerVisible();
+    await click('button[aria-label="关闭详情"]');
+    await click('[data-scene-obstacle="obs_2"]');
+    await click('button[aria-label="关闭详情"]');
+    await wait("document.activeElement?.dataset.sceneObstacle==='obs_2'");
+    if (width <= 1000) {
+      await click('[data-scene-obstacle="obs_2"]'); await click('.ws-collapse');
+      await wait("!document.querySelector('.ws-task-panel').inert && !document.querySelector('.ws-inspector')");
+    }
+  }
+  await viewport(1600,1160);
+  if (await evaluate("document.querySelector('.ws-task-panel').inert")) await click('.ws-collapse');
+  // A failed image request leaves a usable coordinate view and can be retried.
+  await button('坐标核验');
+  await send('Network.enable'); await send('Network.setCacheDisabled',{cacheDisabled:true});
+  await send('Network.setBlockedURLs',{urls:['*workspace-map*']});
+  await button('影像叠加'); await wait("document.querySelector('.ws-scene-image-error')");
+  assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
+  await send('Network.setBlockedURLs',{urls:[]});
+  await button('重试加载'); await wait("document.querySelector('.ws-scene-imagery')?.naturalWidth>0");
+  assert.equal(await evaluate("document.querySelector('.ws-scene-image-error')===null"),true);
   await choose('#scene-dataset','demo');
   assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
   assert.equal(await evaluate("document.querySelectorAll('.ws-scene-demo-point').length"),0);

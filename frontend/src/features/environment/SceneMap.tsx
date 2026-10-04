@@ -19,7 +19,8 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
   const select = useRef(onSelect); select.current = onSelect;
   const [vertical, setVertical] = useState<SceneProjection>(1);
   const [showImage, setShowImage] = useState(true);
-  const imagery = campus && showImage && vertical === 1;
+  const [imageFailed, setImageFailed] = useState(false);
+  const imagery = campus && showImage && vertical === 1 && !imageFailed;
   const imageryRef = useRef(imagery); imageryRef.current = imagery;
   const [showObstacles, setShowObstacles] = useState(true);
   const result = state.result;
@@ -29,6 +30,16 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
   const selected = obstacles.find(o => o.id === state.selectedObstacleId);
   const [scale, setScale] = useState("");
   const fittedBounds = useRef<ObstacleBounds | null>(null);
+
+  // Camera padding keeps targets clear of the floating inspector and map controls.
+  function cameraPadding(): L.FitBoundsOptions {
+    const canvas = container.current;
+    const inspector = canvas?.closest(".ws-map-stage")?.querySelector(".ws-inspector");
+    const rect = canvas?.getBoundingClientRect();
+    const panel = inspector?.getBoundingClientRect();
+    const covered = window.innerWidth > 760 && rect && panel ? Math.max(0, rect.right - panel.left + 20) : 0;
+    return { paddingTopLeft: [55, 145], paddingBottomRight: [Math.max(55, covered), 125], animate: false };
+  }
 
   useEffect(() => {
     if (!container.current) return;
@@ -60,13 +71,14 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
     const observer = new ResizeObserver(() => {
       instance.invalidateSize({ animate: false, pan: false });
       if (fittedBounds.current && container.current?.clientWidth && container.current.clientHeight) {
-        instance.fitBounds(leafletBounds(fittedBounds.current), { padding: [55, 65], animate: false });
+        instance.fitBounds(leafletBounds(fittedBounds.current), cameraPadding());
       }
     });
     observer.observe(container.current);
     return () => { observer.disconnect(); instance.remove(); map.current = null; };
   }, []);
 
+  useEffect(() => { setImageFailed(false); }, [campus]);
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
@@ -74,7 +86,9 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
     if (!imagery) return;
     const corner = imageToMockLocal(mockCampus.image_size_px, 0);
     const overlay = L.imageOverlay(imageUrl, [[0, 0], [corner[1], corner[0]]], { className: "ws-scene-imagery", interactive: false, pane: "tilePane" }).addTo(instance);
-    return () => { overlay.remove(); };
+    const failed = () => setImageFailed(true);
+    overlay.on("error", failed);
+    return () => { overlay.off("error", failed); overlay.remove(); };
   }, [imagery]);
   useEffect(() => {
     const instance = map.current;
@@ -105,15 +119,24 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
   useEffect(() => {
     const next = campus && vertical === 1 ? { minimum: [38, 30] as [number, number], maximum: [222, 174] as [number, number] } : sceneBounds(result?.obstacles ?? [], vertical);
     fittedBounds.current = next;
-    if (next) map.current?.fitBounds(leafletBounds(next), { padding: [55, 65], animate: false });
+    if (next) map.current?.fitBounds(leafletBounds(next), cameraPadding());
   }, [result, vertical, campus]);
   useEffect(() => {
     if (state.selectedObstacleId) {
       setShowObstacles(true);
       const o = result?.obstacles.find(item => item.id === state.selectedObstacleId);
-      if (o && valid) map.current?.panInside([o.position[vertical], o.position[0]], { padding: [55, 65], animate: false });
+      if (o && valid) map.current?.panInside([o.position[vertical], o.position[0]], cameraPadding());
     }
-  }, [state.selectedObstacleId, result, vertical, valid]);
+  }, [state.selectedObstacleId, result, vertical, valid, detailOpen]);
+  useEffect(() => {
+    const inspector = container.current?.closest(".ws-map-stage")?.querySelector(".ws-inspector");
+    if (!inspector) return;
+    const observer = new ResizeObserver(() => {
+      if (fittedBounds.current) map.current?.fitBounds(leafletBounds(fittedBounds.current), cameraPadding());
+    });
+    observer.observe(inspector);
+    return () => observer.disconnect();
+  }, [detailOpen]);
   useEffect(() => {
     const instance = map.current;
     if (!instance || !valid || !showObstacles) return;
@@ -140,12 +163,13 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
     const next = sceneBounds(!all && selected ? [selected] : obstacles, vertical);
     fittedBounds.current = next;
     map.current?.stop();
-    if (next) { setShowObstacles(true); map.current?.fitBounds(leafletBounds(next), { padding: [55, 65], animate: false }); }
+    if (next) { setShowObstacles(true); map.current?.fitBounds(leafletBounds(next), cameraPadding()); }
   }
   return <div className={`ws-scene-map ${detailOpen ? "has-detail" : ""} ${imagery ? "has-imagery" : ""}`}>
     <div ref={container} className="ws-scene-canvas" aria-label={`局部坐标图，X${vertical === 1 ? "Y" : "Z"} 投影，单位米；方向键平移，加减键缩放`} />
     <div className="ws-scene-map-heading"><label htmlFor="scene-projection">{campus ? "建筑巡检演示" : "局部坐标 / m"}</label><select id="scene-projection" className="ws-input" value={vertical} onChange={e => setVertical(Number(e.target.value) as SceneProjection)}><option value={1}>俯视 XY</option><option value={2}>侧视 XZ</option></select><span>{campus ? "Mock · 模拟配准" : result ? sceneSourceNames[result.source] : "等待检测"}</span></div>
-    {campus && <div className="ws-scene-view-switch" role="group" aria-label="场景底图"><button aria-pressed={imagery} onClick={() => { setVertical(1); setShowImage(true); }}>影像叠加</button><button aria-pressed={!imagery} onClick={() => setShowImage(false)}>坐标核验</button></div>}
+    {campus && <div className="ws-scene-view-switch" role="group" aria-label="场景底图"><button aria-pressed={imagery} onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>影像叠加</button><button aria-pressed={!imagery} onClick={() => setShowImage(false)}>坐标核验</button></div>}
+    {campus && imageFailed && <div className="ws-scene-image-error" role="alert">影像加载失败，已切换坐标图。<button className="ws-text-button" onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>重试加载</button></div>}
     <div className="ws-scene-map-tools"><button className="ws-icon" aria-label="放大场景" onClick={() => map.current?.zoomIn()}><Plus size={17} /></button><button className="ws-icon" aria-label="缩小场景" onClick={() => map.current?.zoomOut()}><Minus size={17} /></button><button className="ws-icon" aria-label="显示全部障碍" onClick={() => fit(true)}><Focus size={17} /></button><button className="ws-icon" aria-label="显示障碍图层" aria-pressed={showObstacles} onClick={() => setShowObstacles(!showObstacles)}><Layers size={17} /></button></div>
     {selected && valid && <button className="ws-button ws-scene-locate" onClick={() => fit(false)}><Focus size={15} />定位选中障碍</button>}
     {(!result || !obstacles.length || !valid) && <div className="ws-scene-map-empty" role="status"><strong>{!valid ? "坐标超出可视范围" : state.status === "loading" ? "正在检测场景" : state.status === "error" ? "检测未完成" : result ? "本次未检出障碍" : "等待场景数据"}</strong><p>{!valid ? "当前视图无法可靠表示该坐标范围，请在列表查看原始数值。" : result ? "没有保留的点簇；这不代表空间已确认安全。" : "从左侧选择点云并运行检测，结果将在此展示。"}</p></div>}
