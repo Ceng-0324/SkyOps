@@ -1,0 +1,21 @@
+{
+  "id": "mock-campus-v1",
+  "source": "mock",
+  "registration": "simulated",
+  "description": "人工编排的影像演示场景；尺寸、高度与坐标关系均非实测。",
+  "point_cloud_file": "mock-campus.pcd",
+  "image_size_px": 1280,
+  "metres_per_pixel": 0.2,
+  "image_origin_px": [0, 1280],
+  "height_threshold": 0.5,
+  "cluster_tolerance": 2,
+  "min_points": 10,
+  "obstacles": [
+    { "name": "西侧演示体积", "image_bounds_px": [255, 535, 530, 775], "base_m": 1, "height_m": 18 },
+    { "name": "北侧演示体积", "image_bounds_px": [650, 480, 915, 595], "base_m": 1, "height_m": 12 },
+    { "name": "东侧演示体积", "image_bounds_px": [945, 690, 1030, 850], "base_m": 1, "height_m": 8 }
+  ],
+  "target_image_polygon_px": [[681, 636], [927, 678], [877, 891], [625, 852]],
+  "observation_points_px": [[790, 620, 30], [980, 900, 30], [690, 940, 30]],
+  "start_px": [540, 1000, 0]
+}

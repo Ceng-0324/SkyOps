@@ -8,6 +8,7 @@ import { ReferenceImageMap, type MapMode, type MapSelection } from "./ReferenceI
 import { WorkspaceResizer } from "./WorkspaceResizer";
 import { TaskTreeViewer } from "./TaskTreeViewer";
 import { ScenePanel, ObstacleDetails } from "../environment/ScenePanel";
+import { isMockCampus } from "../environment/mockCampus";
 import { SceneMap } from "../environment/SceneMap";
 import { defaultSceneInput, sceneStatusNames, type SceneInput } from "../environment/sceneInput";
 import "../../styles/spatial-workspace.css";
@@ -22,6 +23,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   const [spatial, setSpatial] = useState(() => initialSpatialDraft(draft));
   const [rawInput, setRawInput] = useState(draft.rawInput);
   const [sceneInput, setSceneInput] = useState<SceneInput>(() => draft.scene ?? { ...defaultSceneInput });
+  const campus = isMockCampus(sceneInput);
   const [section, setSection] = useState<"task" | "scene">("task");
   const [workspace] = useState(() => {
     const w = createWorkspace();
@@ -140,7 +142,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
               {task.status === "error" && <p className="ws-error" role="alert">{task.error}。检查输入或服务连接后，可点击下方按钮重试。</p>}
               <p className="ws-muted">解析结果来自 F01 服务，任务字段齐备不代表空间规划已就绪。</p>
             </section>
-            <section className="ws-section"><div className="ws-section-heading"><h2>场景准备</h2><span className="ws-muted">{sceneStatusNames[environment.status]}</span></div><p className="ws-muted">{environment.result ? `${environment.result.obstacles.length} 个障碍 · 坐标尚未与影像关联。` : "参考影像与点云尚未关联，需在场景页选择数据并检测。"}</p><button className="ws-button ws-full" onClick={() => changeSection("scene")}><Layers size={14} />进入场景检测</button><button className="ws-text-button" onClick={() => { setSelected(null); setMode(null); setReference(true); }}>打开独立场景参考工具<ArrowRight size={13} /></button></section>
+            <section className="ws-section"><div className="ws-section-heading"><h2>场景准备</h2><span className="ws-muted">{sceneStatusNames[environment.status]}</span></div><p className="ws-muted">{environment.result ? `${environment.result.obstacles.length} 个障碍 · ${campus ? "场景页提供模拟配准演示，任务点位尚未关联。" : "坐标尚未与影像关联。"}` : "参考影像与点云尚未关联，需在场景页选择数据并检测。"}</p><button className="ws-button ws-full" onClick={() => changeSection("scene")}><Layers size={14} />进入场景检测</button><button className="ws-text-button" onClick={() => { setSelected(null); setMode(null); setReference(true); }}>打开独立场景参考工具<ArrowRight size={13} /></button></section>
           </div>
           <footer className="ws-task-footer"><p role="status">{task.status === "loading" ? "正在理解任务，请稍候…" : spatial.inputMode === "fields" ? "核对明确字段后生成任务结构。" : "保留原文，无法完整理解时会提示澄清。"}</p><button className="ws-primary ws-full" disabled={task.status === "loading" || (spatial.inputMode === "text" ? !rawInput.trim() : spatial.completion.length > 512)} onClick={() => void parse()}>{task.status === "loading" ? <LoaderCircle className="ws-spinner" size={16} /> : <GitBranch size={16} />}{task.status === "error" ? "重试理解任务" : "理解任务"}</button></footer>
           </>}
@@ -150,10 +152,10 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
           <div className="ws-reference-map" hidden={section !== "task"}><ReferenceImageMap spatial={spatial} selected={selected} mode={mode} onSelect={select} onFinish={() => setMode(null)}
             onPlace={(kind, x, y) => { const next = addMapPoint(spatial, kind, x, y); update(next); if (kind === "start" || next.points.length >= 16) setMode(null); }}
             onMove={(id, patch) => update(moveMapPoint(spatial, id, patch))} /></div>
-          {section === "scene" && <SceneMap state={environment} onSelect={selectObstacle} detailOpen={showInspector} />}
+          {section === "scene" && <SceneMap campus={campus} state={environment} onSelect={selectObstacle} detailOpen={showInspector} />}
           {showInspector && <aside className="ws-inspector" id="ws-inspector" aria-label="对象与任务详情" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); closeDetails(); } }}>
             <div className="ws-inspector-heading"><h2 tabIndex={-1} ref={inspectorHeading}>{section === "scene" ? obstacle?.id : selected === "tree" ? "任务结构" : selected === "object" ? "示例建筑 A" : point?.id === "start" ? "起点 / 返回点" : `观察点 ${String(point?.number ?? "").padStart(2, "0")}`}</h2><button className="ws-icon" aria-label="关闭详情" onClick={closeDetails}><X size={17} /></button></div>
-            {section === "scene" && obstacle && environment.result ? <ObstacleDetails obstacle={obstacle} result={environment.result} /> : selected === "tree" ? <>{task.status === "loading" && <p className="ws-loading" role="status"><LoaderCircle size={16} className="ws-spinner" />正在解析…</p>}{task.status === "error" && <p className="ws-error" role="alert">{task.error}</p>}<TaskTreeViewer workspace={workspace} bound={spatial.bound} /></>
+            {section === "scene" && obstacle && environment.result ? <ObstacleDetails obstacle={obstacle} result={environment.result} campus={campus} /> : selected === "tree" ? <>{task.status === "loading" && <p className="ws-loading" role="status"><LoaderCircle size={16} className="ws-spinner" />正在解析…</p>}{task.status === "error" && <p className="ws-error" role="alert">{task.error}</p>}<TaskTreeViewer workspace={workspace} bound={spatial.bound} /></>
               : selected === "object" ? <><p className="ws-muted">场景对象 · 人工标注示例</p><dl className="ws-object-fields"><div><dt>对象类型</dt><dd>建筑</dd></div><div><dt>对象引用</dt><dd>A</dd></div><div><dt>任务关联</dt><dd>{spatial.bound ? "当前任务" : "尚未绑定"}</dd></div><div><dt>观察点</dt><dd>{spatial.points.length} 个示意点</dd></div></dl><p className="ws-inspector-note">确认作业对象后，再设置需要访问的观察位置。此处绑定的是人工标注对象，不是影像自动识别结果。</p><button className="ws-primary ws-full" disabled={spatial.bound} onClick={() => { update({ ...spatial, bound: true }); setSelected(null); setCollapsed(false); setNotice("已绑定示例建筑 A，可继续添加观察点。"); }}>{spatial.bound ? "已绑定到当前任务" : "绑定为作业目标"}<ArrowRight size={14} /></button></>
                 : point && <><p className="ws-muted">示意点位 · 未与真实场景配准</p><dl className="ws-object-fields"><div><dt>影像位置 X / Y</dt><dd>{point.x} / {point.y} px</dd></div><div><dt>关联目标</dt><dd>示例建筑 A</dd></div></dl><form onSubmit={e => {
                   e.preventDefault(); const value = Number(height);
@@ -168,7 +170,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
           </aside>}
           {notice && <p className="ws-notice" role="status">{notice}<button aria-label="关闭提示" onClick={() => setNotice("")}><X size={14} /></button></p>}
         </div>
-        <footer className="ws-statusbar"><span>{section === "scene" ? "局部坐标 · 米 · 尚未与影像关联" : "参考影像 · 点位未配准 · 本机草稿"}</span><a hidden={section === "scene"} href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">影像 © Esri, Vantor, Earthstar Geographics, GIS User Community</a></footer>
+        <footer className="ws-statusbar"><span>{section === "scene" ? (campus ? "Mock · 模拟配准 · 非实测地理坐标" : "局部坐标 · 米 · 尚未与影像关联") : "参考影像 · 点位未配准 · 本机草稿"}</span><a hidden={section === "scene" && !campus} href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">影像 © Esri, Vantor, Earthstar Geographics, GIS User Community</a></footer>
       </div>}
   </div>;
 }

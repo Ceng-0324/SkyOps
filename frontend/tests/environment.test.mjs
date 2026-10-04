@@ -250,7 +250,7 @@ test("selection only accepts current IDs and never survives a new detection with
 
 test("scene form preserves explicit parameters and rejects blank, invalid and unsafe integers", async () => {
   const { defaultSceneInput, sceneRequest } = await import("../node_modules/.tmp/environment-tests/environment.mjs");
-  assert.deepEqual(sceneRequest(defaultSceneInput).request, { point_cloud_file: "demo.pcd", height_threshold: 0.5, min_points: 10, cluster_tolerance: 0.1 });
+  assert.deepEqual(sceneRequest(defaultSceneInput).request, { point_cloud_file: "mock-campus.pcd", height_threshold: 0.5, min_points: 10, cluster_tolerance: 2 });
   for (const patch of [{ file: " " }, { height: "" }, { height: "-1" }, { height: "Infinity" }, { minPoints: "0" }, { minPoints: "1.5" }, { minPoints: "9007199254740992" }, { tolerance: "" }, { tolerance: "0.09" }, { tolerance: "NaN" }]) {
     const result = sceneRequest({ ...defaultSceneInput, ...patch });
     assert.equal(result.request, null); assert.ok(result.error);
@@ -271,4 +271,21 @@ test("local obstacle projections preserve metres, negative coordinates and degen
   assert.ok(sceneBounds([], 1));
   assert.equal(sceneBounds([{ ...o, position: [1e308, 0, 0], size: [1e308, 1, 1] }], 1), null);
   assert.equal(obstacleBounds({ ...o, position: [1e308, 0, 0], size: [1.7e308, 1, 1] }, 1), null);
+});
+
+
+test("simulated registration round-trips pixels and is available only for the paired scene", async () => {
+  const { imageToMockLocal, mockLocalToImage, isMockCampus, scenePreset, isSceneInput } = await import("../node_modules/.tmp/environment-tests/environment.mjs");
+  for (const [x,y] of [[0,0],[1280,1280],[681,636],[540,1000]]) {
+    const local=imageToMockLocal(x,y,30);
+    const pixels=mockLocalToImage(local[0],local[1]);
+    assert.ok(Math.abs(pixels[0]-x)<1e-9 && Math.abs(pixels[1]-y)<1e-9);
+    assert.equal(local[2],30);
+  }
+  assert.deepEqual(imageToMockLocal(0,1280),[0,0,0]);
+  assert.equal(isMockCampus(scenePreset("campus")),true);
+  assert.equal(isMockCampus(scenePreset("demo")),false);
+  assert.equal(isMockCampus({ ...scenePreset("campus"), dataset:"server" }),false);
+  assert.equal(isSceneInput({ ...scenePreset("campus"), file:"demo.pcd" }),false);
+  assert.equal(isSceneInput(scenePreset("demo")),true);
 });

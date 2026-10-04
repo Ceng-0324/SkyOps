@@ -1,7 +1,8 @@
 import { Box, ChevronRight, Crosshair, LoaderCircle, RotateCcw } from "lucide-react";
 import type { Obstacle, ObstacleDetectionResult } from "../../api/pointCloud";
+import { isMockCampus } from "./mockCampus";
 import type { EnvironmentState } from "./environmentStore";
-import { sceneNumber, sceneRequest, sceneSourceNames, sceneStatusNames, type SceneInput } from "./sceneInput";
+import { sceneNumber, scenePreset, sceneRequest, sceneSourceNames, sceneStatusNames, type SceneInput } from "./sceneInput";
 
 export function ScenePanel({ input, state, onChange, onSelect, onShowMap, storageError }: {
   input: SceneInput; state: EnvironmentState; onChange: (input: SceneInput) => void;
@@ -10,17 +11,18 @@ export function ScenePanel({ input, state, onChange, onSelect, onShowMap, storag
   const validation = sceneRequest(input);
   const busy = state.status === "loading";
   const result = state.result;
+  const campus = isMockCampus(input);
   return <>
     <div className="ws-panel-scroll ws-scene-panel">
       {storageError && <p className="ws-error" role="alert">{storageError}</p>}
       <section className="ws-section">
         <div className="ws-section-heading"><h2>场景数据</h2><span className="ws-muted">PCD 点云</span></div>
         <label className="ws-field-label" htmlFor="scene-dataset">选择数据</label>
-        <select id="scene-dataset" className="ws-input" value={input.dataset} disabled={busy} onChange={e => onChange({ ...input, dataset: e.target.value as SceneInput["dataset"], file: e.target.value === "demo" ? "demo.pcd" : "" })}>
-          <option value="demo">合成点簇示例 · demo.pcd</option><option value="server">其他已配置点云</option>
+        <select id="scene-dataset" className="ws-input" value={input.dataset} disabled={busy} onChange={e => onChange(scenePreset(e.target.value as SceneInput["dataset"]))}>
+          <option value="campus">建筑巡检演示 · 模拟配准</option><option value="demo">合成点簇示例 · demo.pcd</option><option value="server">其他已配置点云</option>
         </select>
         {input.dataset === "server" && <><label className="ws-field-label" htmlFor="scene-file">受控目录中的文件路径</label><input id="scene-file" className="ws-input" maxLength={1024} value={input.file} disabled={busy} onChange={e => onChange({ ...input, file: e.target.value })} placeholder="例如：site/scan.pcd" /></>}
-        <p className="ws-muted">{input.dataset === "demo" ? "仓库内的合成样本，包含两个相距约 100 m 的点簇；与任务航拍影像未关联。" : "使用服务端已配置的 PCD 文件。此处不上传浏览器本地文件，来源以检测结果为准。"}</p>
+        <p className="ws-muted">{campus ? "与当前影像配套的人工演示场景，包含三处合成障碍体积。位置、比例与高度均为模拟设定。" : input.dataset === "demo" ? "仓库内的合成样本，包含两个相距约 100 m 的点簇；与任务航拍影像未关联。" : "使用服务端已配置的 PCD 文件。此处不上传浏览器本地文件，来源以检测结果为准。"}</p>
         <details className="ws-scene-parameters"><summary>检测参数</summary>
           <p className="ws-muted">用于过滤点和划分点簇，不是飞行安全阈值。</p>
           {([
@@ -45,7 +47,7 @@ export function ScenePanel({ input, state, onChange, onSelect, onShowMap, storag
           <dl className="ws-scene-metadata"><div><dt>检测时间</dt><dd><time dateTime={result.detection_time}>{new Date(result.detection_time).toLocaleString("zh-CN", { hour12: false })}</time></dd></div><div><dt>算法</dt><dd>{result.algorithm}</dd></div></dl>
         </>}
       </section>
-      <section className="ws-section"><div className="ws-section-heading"><h2>坐标关联</h2><span className="ws-amber">未配准</span></div><p className="ws-muted">检测坐标为局部米制坐标。尚未与航拍影像、作业对象及观察点建立对应关系。</p><button className="ws-text-button" onClick={onShowMap}><Box size={14} />查看场景空间视图</button></section>
+      <section className="ws-section"><div className="ws-section-heading"><h2>坐标关联</h2><span className="ws-amber">{campus ? "模拟配准" : "未配准"}</span></div><p className="ws-muted">{campus ? "影像、合成点云和演示点位使用同一模拟坐标关系。比例设为 0.2 m/px，X 向右、Y 向上；不代表实测地理位置或测绘精度。" : "检测坐标为局部米制坐标。尚未与航拍影像、作业对象及观察点建立对应关系。"}</p><button className="ws-text-button" onClick={onShowMap}><Box size={14} />查看场景空间视图</button></section>
     </div>
     <footer className="ws-task-footer ws-scene-footer"><p>参数保存在本机；检测结果仅保留在当前工作区。</p><button className="ws-primary ws-full" disabled={busy || !validation.request} onClick={() => {
       if (state.status === "error") void state.retry();
@@ -57,8 +59,8 @@ export function ScenePanel({ input, state, onChange, onSelect, onShowMap, storag
   </>;
 }
 
-export function ObstacleDetails({ obstacle: o, result }: { obstacle: Obstacle; result: ObstacleDetectionResult }) {
-  return <div className="ws-obstacle-details"><p className="ws-muted">{sceneSourceNames[result.source]} · 检测结果</p>
+export function ObstacleDetails({ obstacle: o, result, campus = false }: { obstacle: Obstacle; result: ObstacleDetectionResult; campus?: boolean }) {
+  return <div className="ws-obstacle-details"><p className="ws-muted">{sceneSourceNames[result.source]} · {campus ? "模拟配准场景" : "检测结果"}</p>
     <dl className="ws-object-fields"><div><dt>类型</dt><dd>{o.obstacle_type === "unknown" ? "未识别" : o.obstacle_type}</dd></div><div><dt>启发式置信度</dt><dd>{sceneNumber(o.confidence)}</dd></div></dl>
     <h3>中心位置 / m</h3><dl className="ws-scene-vector">{o.position.map((value, i) => <div key={i}><dt>{"XYZ"[i]}</dt><dd>{sceneNumber(value)}</dd></div>)}</dl>
     <h3>包围盒尺寸 / m</h3><dl className="ws-scene-vector">{o.size.map((value, i) => <div key={i}><dt>{["X 宽度", "Y 深度", "Z 高度"][i]}</dt><dd>{sceneNumber(value)}</dd></div>)}</dl>

@@ -87,6 +87,25 @@ try {
     await evaluate("new Promise(r=>requestAnimationFrame(r))");
   };
   await button('场景');
+  assert.equal(await evaluate("document.querySelector('#scene-dataset').value"),'campus');
+  await wait("document.querySelector('.ws-scene-imagery')?.complete");
+  await button('开始检测'); await wait("document.querySelectorAll('[data-obstacle-row]').length===3");
+  await click('[data-obstacle-row="obs_1"]');
+  assert.ok(await evaluate("document.querySelector('.ws-obstacle-details').textContent.includes('模拟配准')"));
+  await shot('scene-mock-overlay');
+  await viewport(1440,900); await layout(); await shot('scene-mock-1440');
+  await viewport(390,844); await click('[data-obstacle-row="obs_1"]'); await layout(); await shot('scene-mock-mobile-detail');
+  await click('button[aria-label="关闭详情"]'); await shot('scene-mock-mobile-map');
+  await button('坐标核验');
+  assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
+  await button('影像叠加'); await wait("document.querySelector('.ws-scene-imagery')?.complete");
+  await choose('#scene-projection','2');
+  assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
+  await button('影像叠加');
+  await viewport(1600,1160); await click('.ws-collapse');
+  await choose('#scene-dataset','demo');
+  assert.equal(await evaluate("document.querySelector('.ws-scene-imagery')===null"),true);
+  assert.equal(await evaluate("document.querySelectorAll('.ws-scene-demo-point').length"),0);
   await wait("document.querySelector('.ws-scene-canvas.leaflet-container')");
   assert.equal(await evaluate("document.querySelectorAll('[data-obstacle-row]').length"),0);
   await shot('scene-idle');
@@ -182,7 +201,7 @@ try {
   await click('.page-heading .primary-button'); await input('#create-name','F02 隔离任务'); await input('#create-goal','测试独立场景'); await click('.drawer-submit');
   await wait("document.querySelector('.ws-header h1').textContent==='F02 隔离任务'"); await button('场景');
   assert.equal(await evaluate("document.querySelectorAll('[data-obstacle-row]').length"),0);
-  assert.equal(await evaluate("document.querySelector('#scene-tolerance').value"),'0.1');
+  assert.equal(await evaluate("document.querySelector('#scene-tolerance').value"),'2');
   assert.deepEqual(page.errors,[]);
   console.log('F02 browser passed: real detections, empty/error/retry/cancel, settings invalidation/persistence, task isolation, map/list selection, projections, layers, desktop/mobile and reference-image separation.');
 } finally {

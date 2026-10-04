@@ -1,21 +1,28 @@
+import { mockCampus } from "./mockCampus";
 import type { ObstacleDetectionRequest } from "../../api/pointCloud";
 
 /** Persist only editable settings; results must be detected again after reload. */
 export type SceneInput = {
-  dataset: "demo" | "server";
+  dataset: "campus" | "demo" | "server";
   file: string;
   height: string;
   minPoints: string;
   tolerance: string;
 };
-export const defaultSceneInput: SceneInput = { dataset: "demo", file: "demo.pcd", height: "0.5", minPoints: "10", tolerance: "0.1" };
+export function scenePreset(dataset: SceneInput["dataset"]): SceneInput {
+  return dataset === "campus"
+    ? { dataset, file: mockCampus.point_cloud_file, height: String(mockCampus.height_threshold), minPoints: String(mockCampus.min_points), tolerance: String(mockCampus.cluster_tolerance) }
+    : { dataset, file: dataset === "demo" ? "demo.pcd" : "", height: "0.5", minPoints: "10", tolerance: "0.1" };
+}
+export const defaultSceneInput = scenePreset("campus");
 
 export function isSceneInput(value: unknown): value is SceneInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return (input.dataset === "demo" || input.dataset === "server")
+  return (input.dataset === "campus" || input.dataset === "demo" || input.dataset === "server")
     && typeof input.file === "string" && input.file.length <= 1024
     && (input.dataset !== "demo" || input.file === "demo.pcd")
+    && (input.dataset !== "campus" || input.file === mockCampus.point_cloud_file)
     && [input.height, input.minPoints, input.tolerance].every(v => typeof v === "string" && v.length <= 32);
 }
 
