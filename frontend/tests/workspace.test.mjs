@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createWorkspace, createEnvironmentStore, createCandidates, createMissionPlan, demoTask, demoGeometry, readCandidateResult } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createWorkspace, createEnvironmentStore, createCandidates, createMissionPlan, demoTask, demoGeometry, readCandidateResult, TaskTreeViewer } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
 
 const detection = { source: "mock", obstacles: [], algorithm: "test", detection_time: "2026-10-03T00:00:00Z" };
 const tree = {
@@ -28,6 +30,33 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
 const defaults = { parse: async () => structuredClone(parsed), generate: async () => result(), replan: async () => ({}), review: async () => ({}) };
 function workspace(overrides = {}) { return createWorkspace({ ...defaults, ...overrides }, createEnvironmentStore(async () => ({ result: detection }))); }
 async function ready(w) { await w.store.getState().parse(); await w.environment.getState().detect({ point_cloud_file: "demo.pcd" }); }
+
+for (const id of ["constructor", "toString", "__proto__", "ordinary-task"]) {
+  test(`task tree safely renders ${id} and only its own blocking reasons`, async t => {
+    for (const [blocked, expected] of [[{}, false], [{ [id]: ["own blocking reason"] }, true], [Object.create({ [id]: ["inherited blocking reason"] }), false]]) {
+      const data = structuredClone(parsed);
+      data.task_tree.definition.nodes[0].id = id;
+      data.task_dependencies = { nodes: [id], edges: [], topological_order: [id], parallel_groups: [[id]], blocked_tasks: blocked };
+      t.mock.method(globalThis, "fetch", async () => Response.json(data));
+      const validated = await createMissionPlan({ raw_user_input: JSON.stringify({ nodes: data.task_tree.definition.nodes }) });
+      // Also exercise inherited arrays at the rendering boundary; JSON itself drops them.
+      validated.task_dependencies.blocked_tasks = blocked;
+      const w = workspace({ parse: async () => validated });
+      try {
+        await w.store.getState().parse();
+        // SSR reads getInitialState; expose the parsed snapshot just as the mounted client does.
+        const renderedWorkspace = { ...w, store: { ...w.store, getInitialState: w.store.getState } };
+        const render = () => renderToStaticMarkup(createElement(TaskTreeViewer, { workspace: renderedWorkspace }));
+        const html = render();
+        assert.ok(html.includes(id));
+        assert.equal(html.includes("own blocking reason"), expected);
+        assert.equal(html.includes("inherited blocking reason"), false);
+        Object.defineProperty(blocked, id, { value: "not an array", configurable: true });
+        assert.doesNotThrow(render);
+      } finally { w.dispose(); t.mock.restoreAll(); }
+    }
+  });
+}
 
 test("planning waits for parsed task and successful detection; selection only accepts feasible plans", async () => {
   let calls = 0;

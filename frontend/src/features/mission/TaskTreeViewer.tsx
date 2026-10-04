@@ -1,5 +1,6 @@
 import { ArrowDown, GitBranch } from "lucide-react";
 import { useStore } from "zustand";
+import { isStringList } from "../../api/task";
 import type { Locale } from "./i18n";
 import type { Workspace } from "./workspaceStore";
 import { actionNames } from "./spatialTaskDraft";
@@ -11,6 +12,11 @@ export function TaskTreeViewer({ workspace, locale = "zh", bound = false }: { wo
   const nodes = tree?.definition?.nodes ?? [];
   const ordered = graph?.topological_order ?? [];
   const orderedNodes = [...nodes].sort((a, b) => ordered.indexOf(a.id) - ordered.indexOf(b.id));
+  const blockingReasons = (id: string): string[] => {
+    const blocked = graph?.blocked_tasks;
+    const reasons = blocked && Object.hasOwn(blocked, id) ? blocked[id] : undefined;
+    return isStringList(reasons) ? reasons : [];
+  };
   return <section className="ws-tree" aria-label={locale === "zh" ? "任务树与依赖" : "Task tree and dependencies"}>
     <p className="ws-muted">{tree ? `${tree.source_type === "mock" ? "Mock" : tree.source_type} · 任务草稿 · 未授权执行` : "解析后显示目标、完成条件与依赖关系。"}</p>
     {!tree && <div className="ws-empty"><GitBranch size={28} /><p>先理解任务，再组织行动</p></div>}
@@ -26,7 +32,7 @@ export function TaskTreeViewer({ workspace, locale = "zh", bound = false }: { wo
       {!node.completion_conditions.length && <p className="ws-amber">完成条件待补充</p>}
       {node.parent_id && <p className="ws-muted">父任务：{node.parent_id}</p>}
       {node.depends_on.length > 0 && <p className="ws-dependency"><ArrowDown size={13} />前置任务：{node.depends_on.join("、")}</p>}
-      {graph?.blocked_tasks[node.id]?.map((reason, i) => <p className="ws-amber" key={i}>{reason}</p>)}
+      {blockingReasons(node.id).map((reason, i) => <p className="ws-amber" key={i}>{reason}</p>)}
     </li>)}</ol>
     {graph && graph.parallel_groups.some(group => group.length > 1) && <details className="ws-parse-fragments"><summary>可并行任务</summary>{graph.parallel_groups.filter(group => group.length > 1).map((group, i) => <p key={i}>{group.join(" · ")}</p>)}</details>}
     {tree && <p className="ws-muted ws-tree-boundary">解析完成只表示任务字段完整。空间可达性与飞行条件仍需后续检查。</p>}
