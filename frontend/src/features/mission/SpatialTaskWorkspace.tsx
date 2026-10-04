@@ -1,6 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { ArrowLeft, ArrowRight, Building2, ChevronRight, FileText, Folders, GitBranch, Layers, LayoutDashboard, LoaderCircle, MapPin, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Route, Trash2, X } from "lucide-react";
+import type { Strategy } from "../../api/candidates";
+import { SpatialPlanPanel, SpatialPlanDetails } from "./SpatialPlanPanel";
+import { defaultPlanningSettings, prepareSpatialPlanning, strategyNames, type PlanningSettings } from "./spatialPlanning";
 import type { MissionDraft } from "./missionDrafts";
 import { createWorkspace } from "./workspaceStore";
 import { actionNames, addMapPoint, initialSpatialDraft, moveMapPoint, taskInputFor, type SpatialTaskDraft } from "./spatialTaskDraft";
@@ -13,6 +16,7 @@ import { SceneMap } from "../environment/SceneMap";
 import { defaultSceneInput, sceneStatusNames, type SceneInput } from "../environment/sceneInput";
 import "../../styles/spatial-workspace.css";
 import "../../styles/scene-workspace.css";
+import "../../styles/plan-workspace.css";
 
 const ReferenceConsole = lazy(() => import("./MissionConsole").then(m => ({ default: m.MissionConsole })));
 type DraftUpdate = Pick<MissionDraft, "rawInput" | "spatial" | "scene">;
@@ -24,7 +28,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   const [rawInput, setRawInput] = useState(draft.rawInput);
   const [sceneInput, setSceneInput] = useState<SceneInput>(() => draft.scene ?? { ...defaultSceneInput });
   const campus = isMockCampus(sceneInput);
-  const [section, setSection] = useState<"task" | "scene">("task");
+  const [section, setSection] = useState<"task" | "scene" | "plan">("task");
   const [workspace] = useState(() => {
     const w = createWorkspace();
     w.store.getState().setTaskInput(taskInputFor(initialSpatialDraft(draft), draft.rawInput));
@@ -33,13 +37,27 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   });
   const task = useStore(workspace.store, state => state.task);
   const environment = useStore(workspace.environment);
+  const planning = useStore(workspace.store, state => state.planning);
+  const [planningSettings, setPlanningSettings] = useState<PlanningSettings>({ ...defaultPlanningSettings });
+  const prepared = useMemo(() => prepareSpatialPlanning(spatial, sceneInput, planningSettings), [spatial, sceneInput, planningSettings]);
+  const [viewedStrategy, setViewedStrategy] = useState<Strategy | null>(null);
+  const [comparedStrategy, setComparedStrategy] = useState<Strategy | null>(null);
+  const [adoptedStrategy, setAdoptedStrategy] = useState<Strategy | null>(null);
+  const [planDetailsOpen, setPlanDetailsOpen] = useState(false);
+  const [visitIndex, setVisitIndex] = useState<number | null>(null);
+  const viewedPlan = planning.data?.candidates.find(p => p.strategy === viewedStrategy);
+  const comparedPlan = planning.data?.candidates.find(p => p.strategy === comparedStrategy && p.status === "feasible");
+  const planningReasons = [...prepared.reasons];
+  if (task.data?.task_tree.status !== "parsed") planningReasons.push("请先在任务页理解任务，并补全待澄清信息。");
+  if (environment.status !== "success") planningReasons.push("请先在场景页完成障碍检测。");
+  if (task.data?.task_tree.definition?.nodes.some(n => !n.target?.refs.length || n.target.refs.some(ref => ref !== "A"))) planningReasons.push("当前地图仅绑定对象 A，任务包含未关联的目标引用，请返回任务页修正。");
   const obstacle = environment.result?.obstacles.find(o => o.id === environment.selectedObstacleId);
   const [collapsed, setCollapsed] = useState(() => window.innerWidth <= 760);
   const [panelWidth, setPanelWidth] = useState(356);
   const [detailWidth, setDetailWidth] = useState(300);
   const [viewport, setViewport] = useState(window.innerWidth);
   const [selected, setSelected] = useState<MapSelection>(null);
-  const showInspector = section === "scene" ? Boolean(obstacle) : Boolean(selected);
+  const showInspector = section === "plan" ? planDetailsOpen && Boolean(viewedPlan) : section === "scene" ? Boolean(obstacle) : Boolean(selected);
   const [mode, setMode] = useState<MapMode>(null);
   const [editing, setEditing] = useState(false);
   const [height, setHeight] = useState("");
@@ -69,20 +87,49 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   }, [visible, reference]);
   useEffect(() => { if (editing) taskInputRef.current?.focus(); }, [editing]);
   useEffect(() => { setHeight(point ? String(point.z) : ""); setHeightError(""); }, [point?.id, point?.z]);
-  useEffect(() => { if (showInspector) inspectorHeading.current?.focus({ preventScroll: true }); }, [selected, environment.selectedObstacleId, showInspector]);
+  useEffect(() => { if (showInspector) inspectorHeading.current?.focus({ preventScroll: true }); }, [selected, environment.selectedObstacleId, showInspector, viewedStrategy]);
 
   useEffect(() => {
-    if (section === "scene" && showInspector && !narrow && !collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300) setCollapsed(true);
+    if (section !== "task" && showInspector && !narrow && !collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300) setCollapsed(true);
   }, [section, showInspector, narrow, collapsed, viewport, leftWidth, rightWidth]);
 
+  useEffect(() => {
+    setViewedStrategy(planning.data?.recommended_strategy ?? planning.data?.candidates[0]?.strategy ?? null);
+    setComparedStrategy(null); setAdoptedStrategy(null); setVisitIndex(null);
+    setPlanDetailsOpen(Boolean(planning.data?.candidates.length));
+    if (planning.data && window.innerWidth <= 760) setCollapsed(true);
+  }, [planning.data]);
+  function invalidateGeometry() {
+    const state = workspace.store.getState();
+    state.setGeometry({ ...state.geometry, targets: [] });
+  }
+  function updatePlanningSettings(next: PlanningSettings) { setPlanningSettings(next); invalidateGeometry(); }
+  function generatePlans() {
+    if (planningReasons.length || !prepared.geometry) return;
+    workspace.store.getState().setGeometry(prepared.geometry);
+    void workspace.store.getState().generate();
+  }
+  function inspectPlan(strategy: Strategy) {
+    inspectorOpener.current = document.activeElement as HTMLElement | null;
+    const plan = planning.data?.candidates.find(p => p.strategy === strategy);
+    setViewedStrategy(strategy); setVisitIndex(null); setPlanDetailsOpen(true);
+    if (comparedStrategy === strategy || plan?.status !== "feasible") setComparedStrategy(null);
+    if (narrow) setCollapsed(true);
+  }
+  function inspectVisit(index: number) {
+    if (document.activeElement instanceof HTMLElement && document.activeElement.dataset.routeVisit !== undefined) inspectorOpener.current = document.activeElement;
+    setVisitIndex(index); setPlanDetailsOpen(true); if (narrow) setCollapsed(true); }
+  const planView = useMemo(() => ({ geometry: planning.data?.scene ?? prepared.geometry, primary: viewedPlan, comparison: comparedPlan, visitIndex, onVisit: inspectVisit }), [planning.data, prepared.geometry, viewedPlan, comparedPlan, visitIndex, narrow]);
+
   function update(next: SpatialTaskDraft, input = rawInput) {
+    invalidateGeometry();
     setSpatial(next); setRawInput(input);
     const nextInput = taskInputFor(next, input);
     if (workspace.store.getState().taskInput !== nextInput) workspace.store.getState().setTaskInput(nextInput);
     onChange({ rawInput: input, spatial: next, scene: sceneInput });
   }
-  function changeSection(next: "task" | "scene") {
-    setSection(next); setSelected(null); setMode(null); setNotice("");
+  function changeSection(next: "task" | "scene" | "plan") {
+    setSection(next); setSelected(null); setMode(null); setNotice(""); setPlanDetailsOpen(false);
     environment.selectObstacle(null); setCollapsed(false);
   }
   function updateScene(next: SceneInput) {
@@ -100,7 +147,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
     if (narrow && id) setCollapsed(true);
   }
   function closeDetails() {
-    setSelected(null); environment.selectObstacle(null);
+    setSelected(null); environment.selectObstacle(null); setPlanDetailsOpen(false);
     const opener = inspectorOpener.current;
     const obstacleId = environment.selectedObstacleId;
     requestAnimationFrame(() => {
@@ -123,10 +170,10 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
     {reference ? <div className="ws-reference"><header><button className="ws-button" onClick={() => setReference(false)}><ArrowLeft size={16} />返回任务编辑</button><p>独立场景参考工具 · 此处示例坐标与当前影像点位未关联</p></header><Suspense fallback={<p className="ws-loading">加载参考工具…</p>}><ReferenceConsole initialTaskInput={rawInput} /></Suspense></div>
       : <div className={`ws-shell ${collapsed ? "ws-collapsed" : ""}`}>
         <aside className="ws-rail"><Layers size={28} /><nav aria-label="工作区导航"><button aria-label="返回总览工作台" onClick={onBack}><LayoutDashboard size={19} /></button><button aria-label="当前任务" aria-current="page" onClick={() => changeSection("task")}><Folders size={19} /></button></nav><span className="ws-rail-source">SIM</span></aside>
-        <header className="ws-header"><button className="ws-icon" onClick={onBack} aria-label="返回工作台"><ArrowLeft size={18} /></button><span className="ws-header-project">个人工作区</span><h1 ref={heading} tabIndex={-1}>{draft.name}</h1><span className="ws-draft-tag">草稿</span><span className="ws-header-source">模拟作业</span><button className="ws-collapse" aria-label={collapsed ? "展开任务面板" : "收起任务面板"} aria-expanded={!collapsed} aria-controls="ws-task-panel" onClick={() => { setCollapsed(!collapsed); if (narrow || (section === "scene" && collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300)) { setSelected(null); environment.selectObstacle(null); } }}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span>{collapsed ? "展开任务面板" : "收起任务面板"}</span></button></header>
+        <header className="ws-header"><button className="ws-icon" onClick={onBack} aria-label="返回工作台"><ArrowLeft size={18} /></button><span className="ws-header-project">个人工作区</span><h1 ref={heading} tabIndex={-1}>{draft.name}</h1><span className="ws-draft-tag">草稿</span><span className="ws-header-source">模拟作业</span><button className="ws-collapse" aria-label={collapsed ? "展开任务面板" : "收起任务面板"} aria-expanded={!collapsed} aria-controls="ws-task-panel" onClick={() => { setCollapsed(!collapsed); if (narrow || (section !== "task" && collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300)) { setSelected(null); environment.selectObstacle(null); setPlanDetailsOpen(false); } }}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span>{collapsed ? "展开任务面板" : "收起任务面板"}</span></button></header>
         <aside className="ws-task-panel" id="ws-task-panel" inert={collapsed}>
-          <nav className="ws-tabs" aria-label="任务准备阶段"><button aria-current={section === "task" ? "page" : undefined} onClick={() => changeSection("task")}><FileText size={15} />任务</button><button aria-current={section === "scene" ? "page" : undefined} onClick={() => changeSection("scene")}><Layers size={15} />场景</button><button disabled title="方案比较将在后续模块接入"><Route size={15} />方案</button></nav>
-          {section === "scene" ? <ScenePanel input={sceneInput} state={environment} onChange={updateScene} onSelect={selectObstacle} onShowMap={() => { setCollapsed(true); requestAnimationFrame(() => document.querySelector<HTMLElement>(".ws-scene-canvas")?.focus()); }} storageError={storageError} /> : <>
+          <nav className="ws-tabs" aria-label="任务准备阶段"><button aria-current={section === "task" ? "page" : undefined} onClick={() => changeSection("task")}><FileText size={15} />任务</button><button aria-current={section === "scene" ? "page" : undefined} onClick={() => changeSection("scene")}><Layers size={15} />场景</button><button aria-current={section === "plan" ? "page" : undefined} onClick={() => changeSection("plan")}><Route size={15} />方案</button></nav>
+          {section === "plan" ? <SpatialPlanPanel workspace={workspace} reasons={planningReasons} settings={planningSettings} onSettings={updatePlanningSettings} selected={viewedPlan} adopted={adoptedStrategy} onSelect={inspectPlan} onAdopt={() => { if (viewedPlan?.status === "feasible") setAdoptedStrategy(viewedPlan.strategy); }} onGenerate={generatePlans} onPrepare={changeSection} /> : section === "scene" ? <ScenePanel input={sceneInput} state={environment} onChange={updateScene} onSelect={selectObstacle} onShowMap={() => { setCollapsed(true); requestAnimationFrame(() => document.querySelector<HTMLElement>(".ws-scene-canvas")?.focus()); }} storageError={storageError} /> : <>
           <div className="ws-panel-scroll">
             {storageError && <p className="ws-error" role="alert">{storageError}</p>}
             <section className="ws-section"><div className="ws-section-heading"><h2>任务内容</h2><button onClick={() => setEditing(!editing)} className="ws-text-button"><Pencil size={13} />{editing ? "完成编辑" : "编辑"}</button></div>
@@ -152,7 +199,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
               {task.status === "error" && <p className="ws-error" role="alert">{task.error}。检查输入或服务连接后，可点击下方按钮重试。</p>}
               <p className="ws-muted">解析结果来自 F01 服务，任务字段齐备不代表空间规划已就绪。</p>
             </section>
-            <section className="ws-section"><div className="ws-section-heading"><h2>场景准备</h2><span className="ws-muted">{sceneStatusNames[environment.status]}</span></div><p className="ws-muted">{environment.result ? `${environment.result.obstacles.length} 个障碍 · ${campus ? "场景页提供模拟配准演示，任务点位尚未关联。" : "坐标尚未与影像关联。"}` : "参考影像与点云尚未关联，需在场景页选择数据并检测。"}</p><button className="ws-button ws-full" onClick={() => changeSection("scene")}><Layers size={14} />进入场景检测</button><button className="ws-text-button" onClick={() => { setSelected(null); setMode(null); setReference(true); }}>打开独立场景参考工具<ArrowRight size={13} /></button></section>
+            <section className="ws-section"><div className="ws-section-heading"><h2>场景准备</h2><span className="ws-muted">{sceneStatusNames[environment.status]}</span></div><p className="ws-muted">{environment.result ? `${environment.result.obstacles.length} 个障碍 · ${campus ? "方案页将按模拟配准转换当前任务点位。" : "坐标尚未与影像关联。"}` : "参考影像与点云尚未关联，需在场景页选择数据并检测。"}</p><button className="ws-button ws-full" onClick={() => changeSection("scene")}><Layers size={14} />进入场景检测</button><button className="ws-text-button" onClick={() => { setSelected(null); setMode(null); setReference(true); }}>打开独立场景参考工具<ArrowRight size={13} /></button></section>
           </div>
           <footer className="ws-task-footer"><p role="status">{task.status === "loading" ? "正在理解任务，请稍候…" : spatial.inputMode === "fields" ? "核对明确字段后生成任务结构。" : "保留原文，无法完整理解时会提示澄清。"}</p><button className="ws-primary ws-full" disabled={task.status === "loading" || (spatial.inputMode === "text" ? !rawInput.trim() : spatial.completion.length > 512)} onClick={() => void parse()}>{task.status === "loading" ? <LoaderCircle className="ws-spinner" size={16} /> : <GitBranch size={16} />}{task.status === "error" ? "重试理解任务" : "理解任务"}</button></footer>
           </>}
@@ -162,10 +209,15 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
           <div className="ws-reference-map" hidden={section !== "task"}><ReferenceImageMap spatial={spatial} selected={selected} mode={mode} onSelect={select} onFinish={() => setMode(null)}
             onPlace={(kind, x, y) => { const next = addMapPoint(spatial, kind, x, y); update(next); if (kind === "start" || next.points.length >= 16) setMode(null); }}
             onMove={(id, patch) => update(moveMapPoint(spatial, id, patch))} /></div>
-          {section === "scene" && <SceneMap campus={campus} state={environment} onSelect={selectObstacle} detailOpen={showInspector} />}
+          {section !== "task" && <SceneMap campus={campus} state={environment} onSelect={id => { if (section === "scene") selectObstacle(id); }} detailOpen={showInspector} planView={section === "plan" ? planView : undefined} planToolbar={section === "plan" ? <div className="ws-plan-map-toolbar">
+            <strong>{viewedPlan ? strategyNames[viewedPlan.strategy] : "方案预览"}</strong>
+            <label>对照<select aria-label="选择对照方案" className="ws-input" disabled={viewedPlan?.status !== "feasible"} value={comparedStrategy ?? ""} onChange={e => setComparedStrategy((e.target.value || null) as Strategy | null)}><option value="">不叠加对照</option>{planning.data?.candidates.filter(p => p.strategy !== viewedStrategy && p.status === "feasible").map(p => <option key={p.strategy} value={p.strategy}>{strategyNames[p.strategy]}</option>)}</select></label>
+            <button className="ws-text-button" disabled={!viewedPlan} onClick={() => { inspectorOpener.current = document.activeElement as HTMLElement; setPlanDetailsOpen(true); }}>方案详情</button>
+            {viewedPlan && viewedPlan.status !== "feasible" && <span className="ws-amber">本候选没有可显示的路线</span>}
+          </div> : undefined} />}
           {showInspector && <aside className="ws-inspector" id="ws-inspector" aria-label="对象与任务详情" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); closeDetails(); } }}>
-            <div className="ws-inspector-heading"><h2 tabIndex={-1} ref={inspectorHeading}>{section === "scene" ? obstacle?.id : selected === "tree" ? "任务结构" : selected === "object" ? "示例建筑 A" : point?.id === "start" ? "起点 / 返回点" : `观察点 ${String(point?.number ?? "").padStart(2, "0")}`}</h2><button className="ws-icon" aria-label="关闭详情" onClick={closeDetails}><X size={17} /></button></div>
-            {section === "scene" && obstacle && environment.result ? <ObstacleDetails obstacle={obstacle} result={environment.result} campus={campus} /> : selected === "tree" ? <>{task.status === "loading" && <p className="ws-loading" role="status"><LoaderCircle size={16} className="ws-spinner" />正在解析…</p>}{task.status === "error" && <p className="ws-error" role="alert">{task.error}</p>}<TaskTreeViewer workspace={workspace} bound={spatial.bound} /></>
+            <div className="ws-inspector-heading"><h2 tabIndex={-1} ref={inspectorHeading}>{section === "plan" && viewedPlan ? strategyNames[viewedPlan.strategy] : section === "scene" ? obstacle?.id : selected === "tree" ? "任务结构" : selected === "object" ? "示例建筑 A" : point?.id === "start" ? "起点 / 返回点" : `观察点 ${String(point?.number ?? "").padStart(2, "0")}`}</h2><button className="ws-icon" aria-label="关闭详情" onClick={closeDetails}><X size={17} /></button></div>
+            {section === "plan" && viewedPlan && planning.data ? <SpatialPlanDetails plan={viewedPlan} result={planning.data} spatial={spatial} visitIndex={visitIndex} onVisit={inspectVisit} /> : section === "scene" && obstacle && environment.result ? <ObstacleDetails obstacle={obstacle} result={environment.result} campus={campus} /> : selected === "tree" ? <>{task.status === "loading" && <p className="ws-loading" role="status"><LoaderCircle size={16} className="ws-spinner" />正在解析…</p>}{task.status === "error" && <p className="ws-error" role="alert">{task.error}</p>}<TaskTreeViewer workspace={workspace} bound={spatial.bound} /></>
               : selected === "object" ? <><p className="ws-muted">场景对象 · 人工标注示例</p><dl className="ws-object-fields"><div><dt>对象类型</dt><dd>建筑</dd></div><div><dt>对象引用</dt><dd>A</dd></div><div><dt>任务关联</dt><dd>{spatial.bound ? "当前任务" : "尚未绑定"}</dd></div><div><dt>观察点</dt><dd>{spatial.points.length} 个示意点</dd></div></dl><p className="ws-inspector-note">确认作业对象后，再设置需要访问的观察位置。此处绑定的是人工标注对象，不是影像自动识别结果。</p><button className="ws-primary ws-full" disabled={spatial.bound} onClick={() => { update({ ...spatial, bound: true }); setSelected(null); setCollapsed(false); setNotice("已绑定示例建筑 A，可继续添加观察点。"); }}>{spatial.bound ? "已绑定到当前任务" : "绑定为作业目标"}<ArrowRight size={14} /></button></>
                 : point && <><p className="ws-muted">示意点位 · 未与真实场景配准</p><dl className="ws-object-fields"><div><dt>影像位置 X / Y</dt><dd>{point.x} / {point.y} px</dd></div><div><dt>关联目标</dt><dd>示例建筑 A</dd></div></dl><form onSubmit={e => {
                   e.preventDefault(); const value = Number(height);
@@ -180,7 +232,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
           </aside>}
           {notice && <p className="ws-notice" role="status">{notice}<button aria-label="关闭提示" onClick={() => setNotice("")}><X size={14} /></button></p>}
         </div>
-        <footer className="ws-statusbar"><span>{section === "scene" ? (campus ? "Mock · 模拟配准 · 非实测地理坐标" : "局部坐标 · 米 · 尚未与影像关联") : "参考影像 · 点位未配准 · 本机草稿"}</span><a hidden={section === "scene" && !campus} href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">影像 © Esri, Vantor, Earthstar Geographics, GIS User Community</a></footer>
+        <footer className="ws-statusbar"><span>{section !== "task" ? (campus ? "Mock · 模拟配准 · 非实测地理坐标" : "局部坐标 · 米 · 尚未与影像关联") : "参考影像 · 点位未配准 · 本机草稿"}</span><a hidden={section === "scene" && !campus} href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">影像 © Esri, Vantor, Earthstar Geographics, GIS User Community</a></footer>
       </div>}
   </div>;
 }

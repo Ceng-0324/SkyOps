@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Focus, Layers, Minus, Plus } from "lucide-react";
+import type { Candidate, PlanningGeometry } from "../../api/candidates";
 import type { EnvironmentState } from "./environmentStore";
 import { obstacleBounds, sceneBounds, type ObstacleBounds, type SceneProjection } from "./obstacleGeometry";
 import imageUrl from "../../public/scenarios/workspace-map.jpg";
@@ -13,10 +14,18 @@ function tooltip(text: string): HTMLSpanElement {
   const span = document.createElement("span"); span.textContent = text; return span;
 }
 
-export function SceneMap({ state, onSelect, detailOpen, campus = false }: { state: EnvironmentState; onSelect: (id: string) => void; detailOpen: boolean; campus?: boolean }) {
+export type ScenePlanView = {
+  geometry: PlanningGeometry | null;
+  primary: Candidate | undefined;
+  comparison: Candidate | undefined;
+  visitIndex: number | null;
+  onVisit: (index: number) => void;
+};
+export function SceneMap({ state, onSelect, detailOpen, campus = false, planView, planToolbar }: { state: EnvironmentState; onSelect: (id: string) => void; detailOpen: boolean; campus?: boolean; planView?: ScenePlanView; planToolbar?: ReactNode }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const select = useRef(onSelect); select.current = onSelect;
+  const planVisit = useRef(planView?.onVisit); planVisit.current = planView?.onVisit;
   const [vertical, setVertical] = useState<SceneProjection>(1);
   const [showImage, setShowImage] = useState(true);
   const [imageFailed, setImageFailed] = useState(false);
@@ -104,7 +113,7 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
     targetLabel.append(targetShort, targetLong);
     if (vertical === 1) L.polygon(mockCampus.target_image_polygon_px.map(projected), { color: "#91dce6", weight: 2, fillOpacity: .09, interactive: false }).addTo(group)
       .bindTooltip(targetLabel, { permanent: true, direction: "center", className: "ws-scene-target-label" });
-    [...mockCampus.observation_points_px, mockCampus.start_px].forEach((p, i) => {
+    if (!planView) [...mockCampus.observation_points_px, mockCampus.start_px].forEach((p, i) => {
       const start = i === mockCampus.observation_points_px.length;
       const el = document.createElement("span");
       const short = document.createElement("span"); short.className = "ws-demo-short"; short.textContent = start ? "S" : `P${i + 1}`;
@@ -114,13 +123,79 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
       L.marker(projected(p), { keyboard: false, interactive: false, icon: L.divIcon({ className: "ws-scene-demo-host", html: el, iconSize: [110, 25], iconAnchor: [12, 12] }) }).addTo(group);
     });
     return () => { group.remove(); };
-  }, [campus, vertical]);
+  }, [campus, vertical, Boolean(planView)]);
 
+  function planBounds(): ObstacleBounds | null {
+    if (!planView?.geometry) return null;
+    const points = [planView.geometry.start, ...planView.geometry.targets.flatMap(t => t.observation_points), ...(planView.primary?.path?.points ?? []), ...(planView.comparison?.path?.points ?? [])];
+    const xs = points.map(p => p[0]), ys = points.map(p => p[vertical]);
+    return { minimum: [Math.min(...xs) - 12, Math.min(...ys) - 12], maximum: [Math.max(...xs) + 12, Math.max(...ys) + 12] };
+  }
   useEffect(() => {
-    const next = campus && vertical === 1 ? { minimum: [38, 30] as [number, number], maximum: [222, 174] as [number, number] } : sceneBounds(result?.obstacles ?? [], vertical);
+    const instance = map.current;
+    if (!instance || !planView) return;
+    const group = L.layerGroup().addTo(instance);
+    const project = (p: number[]): L.LatLngTuple => [p[vertical], p[0]];
+    for (const [candidate, kind] of [[planView.comparison, "comparison"], [planView.primary, "primary"]] as const) {
+      if (!candidate?.path) continue;
+      if (kind === "primary") L.polyline(candidate.path.points.map(project), { color: "#112e3b", weight: 7, opacity: .9, interactive: false }).addTo(group);
+      const route = L.polyline(candidate.path.points.map(project), { color: kind === "primary" ? "#8edce6" : "#dbb97f", weight: 3, dashArray: kind === "primary" ? undefined : "8 7", interactive: false }).addTo(group);
+      route.getElement()?.setAttribute("data-route", kind);
+      if (kind === "primary") candidate.path.points.slice(1).forEach((point, index) => {
+        const previous = candidate.path!.points[index];
+        const dx = point[0] - previous[0], dy = point[vertical] - previous[vertical];
+        if (Math.hypot(dx, dy) < 15) return;
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "-10 -10 20 20");
+        const arrow = document.createElementNS(svg.namespaceURI, "path");
+        arrow.setAttribute("d", "M-6 -5 6 0 -6 5 -3 0Z");
+        arrow.setAttribute("transform", `rotate(${-Math.atan2(dy, dx) * 180 / Math.PI})`);
+        svg.append(arrow);
+        L.marker([previous[vertical] + dy * .6, previous[0] + dx * .6], { keyboard: false, interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: "ws-plan-route-arrow", html: svg.outerHTML, iconSize: [20, 20], iconAnchor: [10, 10] }) }).addTo(group);
+      });
+    }
+    const candidate = planView.primary;
+    if (candidate?.path && planView.geometry) {
+      const visits = [planView.geometry.start, ...candidate.visits.map(v => v.position), planView.geometry.start];
+      const locations = new Map<string, { position: number[]; indices: number[] }>();
+      visits.slice(0, -1).forEach((position, index) => {
+        const key = `${position[0]},${position[vertical]}`;
+        const existing = locations.get(key);
+        if (existing) existing.indices.push(index);
+        else locations.set(key, { position, indices: [index] });
+      });
+      for (const { position, indices } of locations.values()) {
+        const index = indices[0];
+        const el = document.createElement("button"); el.type = "button";
+        el.className = "ws-plan-map-point";
+        el.dataset.routeIndices = [...indices, ...(index === 0 ? [visits.length - 1] : [])].join(",");
+        el.textContent = `${index === 0 ? "S" : index}${indices.length > 1 ? "+" : ""}`;
+        const label = indices.map(i => i === 0 ? "起点 / 返回点" : `第 ${i} 次访问`).join("、");
+        el.setAttribute("aria-label", `查看${label}`); el.setAttribute("aria-pressed", "false"); el.title = label;
+        el.dataset.routeVisit = String(index);
+        L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => planVisit.current?.(index));
+        L.marker(project(position), { keyboard: false, icon: L.divIcon({ className: "ws-scene-marker-host", html: el, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(group);
+      }
+    }
+    return () => { group.remove(); };
+  }, [planView?.geometry, planView?.primary, planView?.comparison, vertical]);
+  // Selection changes only marker styling: preserve the focused DOM node for keyboard users.
+  useEffect(() => {
+    const index = planView?.visitIndex;
+    container.current?.querySelectorAll<HTMLElement>("[data-route-indices]").forEach(el => {
+      const active = index !== null && index !== undefined && el.dataset.routeIndices?.split(",").includes(String(index));
+      el.classList.toggle("is-selected", Boolean(active)); el.setAttribute("aria-pressed", String(Boolean(active)));
+    });
+    if (index === null || index === undefined || !planView?.geometry || !planView.primary?.path) return;
+    const positions = [planView.geometry.start, ...planView.primary.visits.map(v => v.position), planView.geometry.start];
+    const point = positions[index];
+    if (point) map.current?.panInside([point[vertical], point[0]], cameraPadding());
+  }, [planView?.visitIndex, planView?.geometry, planView?.primary, planView?.comparison, vertical]);
+  useEffect(() => {
+    const next = planBounds() ?? (campus && vertical === 1 ? { minimum: [38, 30] as [number, number], maximum: [222, 174] as [number, number] } : sceneBounds(result?.obstacles ?? [], vertical));
     fittedBounds.current = next;
     if (next) map.current?.fitBounds(leafletBounds(next), cameraPadding());
-  }, [result, vertical, campus]);
+  }, [result, vertical, campus, planView?.geometry, planView?.primary, planView?.comparison]);
   useEffect(() => {
     if (state.selectedObstacleId) {
       setShowObstacles(true);
@@ -147,32 +222,34 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false }: { stat
       const active = o.id === state.selectedObstacleId;
       const color = active ? "#f4d396" : "#c9a773";
       const boxLayer = L.rectangle(leafletBounds(box), { color, weight: active ? 2.5 : 1.5, fillColor: "#c4a267", fillOpacity: active ? 0.28 : 0.12, dashArray: active ? undefined : "6 5" }).addTo(group);
-      boxLayer.on("click", () => select.current(o.id));
+      if (!planView) boxLayer.on("click", () => select.current(o.id));
       boxLayer.bindTooltip(tooltip(`${o.id} · ${o.position.map(sceneNumber).join(" / ")} m`), { className: "ws-scene-tooltip" });
-      const el = document.createElement("button");
-      el.type = "button"; el.className = `ws-scene-marker ${active ? "is-selected" : ""}`;
+      const el = document.createElement(planView ? "span" : "button");
+      if (el instanceof HTMLButtonElement) el.type = "button";
+      el.className = `ws-scene-marker ${active ? "is-selected" : ""}`;
       el.dataset.sceneObstacle = o.id; el.textContent = String((result?.obstacles.indexOf(o) ?? 0) + 1).padStart(2, "0");
-      el.setAttribute("aria-label", `查看障碍 ${o.id}`); el.setAttribute("aria-pressed", String(active));
-      L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => select.current(o.id));
+      el.setAttribute("aria-label", `${planView ? "障碍" : "查看障碍"} ${o.id}`); if (!planView) el.setAttribute("aria-pressed", String(active));
+      if (!planView) { L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => select.current(o.id)); }
       L.marker([o.position[vertical], o.position[0]], { keyboard: false, icon: L.divIcon({ className: "ws-scene-marker-host", html: el, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(group);
     }
     return () => { group.remove(); };
-  }, [result, state.selectedObstacleId, vertical, valid, showObstacles]);
+  }, [result, state.selectedObstacleId, vertical, valid, showObstacles, Boolean(planView)]);
 
   function fit(all: boolean) {
-    const next = sceneBounds(!all && selected ? [selected] : obstacles, vertical);
+    const next = (all ? planBounds() : null) ?? sceneBounds(!all && selected ? [selected] : obstacles, vertical);
     fittedBounds.current = next;
     map.current?.stop();
     if (next) { setShowObstacles(true); map.current?.fitBounds(leafletBounds(next), cameraPadding()); }
   }
-  return <div className={`ws-scene-map ${detailOpen ? "has-detail" : ""} ${imagery ? "has-imagery" : ""}`}>
+  return <div className={`ws-scene-map ${detailOpen ? "has-detail" : ""} ${imagery ? "has-imagery" : ""} ${planView ? "has-plan" : ""}`}>
     <div ref={container} className="ws-scene-canvas" aria-label={`局部坐标图，X${vertical === 1 ? "Y" : "Z"} 投影，单位米；方向键平移，加减键缩放`} />
+    {planToolbar}
     <div className="ws-scene-map-heading"><label htmlFor="scene-projection">{campus ? "建筑巡检演示" : "局部坐标 / m"}</label><select id="scene-projection" className="ws-input" value={vertical} onChange={e => setVertical(Number(e.target.value) as SceneProjection)}><option value={1}>俯视 XY</option><option value={2}>侧视 XZ</option></select><span>{campus ? "Mock · 模拟配准" : result ? sceneSourceNames[result.source] : "等待检测"}</span></div>
     {campus && <div className="ws-scene-view-switch" role="group" aria-label="场景底图"><button aria-pressed={imagery} onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>影像叠加</button><button aria-pressed={!imagery} onClick={() => setShowImage(false)}>坐标核验</button></div>}
     {campus && imageFailed && <div className="ws-scene-image-error" role="alert">影像加载失败，已切换坐标图。<button className="ws-text-button" onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>重试加载</button></div>}
     <div className="ws-scene-map-tools"><button className="ws-icon" aria-label="放大场景" onClick={() => map.current?.zoomIn()}><Plus size={17} /></button><button className="ws-icon" aria-label="缩小场景" onClick={() => map.current?.zoomOut()}><Minus size={17} /></button><button className="ws-icon" aria-label="显示全部障碍" onClick={() => fit(true)}><Focus size={17} /></button><button className="ws-icon" aria-label="显示障碍图层" aria-pressed={showObstacles} onClick={() => setShowObstacles(!showObstacles)}><Layers size={17} /></button></div>
     {selected && valid && <button className="ws-button ws-scene-locate" onClick={() => fit(false)}><Focus size={15} />定位选中障碍</button>}
-    {(!result || !obstacles.length || !valid) && <div className="ws-scene-map-empty" role="status"><strong>{!valid ? "坐标超出可视范围" : state.status === "loading" ? "正在检测场景" : state.status === "error" ? "检测未完成" : result ? "本次未检出障碍" : "等待场景数据"}</strong><p>{!valid ? "当前视图无法可靠表示该坐标范围，请在列表查看原始数值。" : result ? "没有保留的点簇；这不代表空间已确认安全。" : "从左侧选择点云并运行检测，结果将在此展示。"}</p></div>}
-    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心"}</span>{campus && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
+    {!planView && (!result || !obstacles.length || !valid) && <div className="ws-scene-map-empty" role="status"><strong>{!valid ? "坐标超出可视范围" : state.status === "loading" ? "正在检测场景" : state.status === "error" ? "检测未完成" : result ? "本次未检出障碍" : "等待场景数据"}</strong><p>{!valid ? "当前视图无法可靠表示该坐标范围，请在列表查看原始数值。" : result ? "没有保留的点簇；这不代表空间已确认安全。" : "从左侧选择点云并运行检测，结果将在此展示。"}</p></div>}
+    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{planView ? "实线：当前路线 · 虚线：对照路线 · S：起止点 · 数字：访问顺序" : campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心"}</span>{campus && !planView && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
   </div>;
 }

@@ -104,3 +104,31 @@ test("task client validates task/dependency contract and exposes FastAPI field e
   t.mock.method(globalThis, "fetch", async () => Response.json({ detail: [{ loc: ["body", "scene", "start"], msg: "outside bounds" }] }, { status: 422 }));
   await assert.rejects(createCandidates(request), /body.scene.start: outside bounds/);
 });
+
+const { prepareSpatialPlanning, defaultPlanningSettings } = await import("../node_modules/.tmp/workspace-tests/workspace.mjs");
+const spatial = { version: 1, coordinateFrame: "reference_image_px", bound: true, inputMode: "fields", action: "inspect", completion: "影像", points: [{ id: "p1", number: 1, x: 790, y: 620, z: 30 }], start: { id: "start", number: 0, x: 540, y: 1000, z: 0 }, nextNumber: 2 };
+const sceneInput = { dataset: "campus", file: "mock-campus.pcd", height: "0.5", minPoints: "10", tolerance: "2" };
+test("paired scene converts task pixels using shared mock scale, flips Y and preserves height", () => {
+  const before = structuredClone(spatial);
+  const { geometry, reasons } = prepareSpatialPlanning(spatial, sceneInput, defaultPlanningSettings);
+  assert.deepEqual(reasons, []);
+  assert.deepEqual(geometry.start, [108, 56, 0]);
+  assert.deepEqual(geometry.targets, [{ ref: "A", observation_points: [[158, 132, 30]] }]);
+  assert.equal(geometry.source, "mock"); assert.equal(geometry.coordinate_frame, "local_cartesian_m");
+  assert.deepEqual(spatial, before);
+});
+test("unpaired data, missing bindings, duplicate samples, invalid heights and excessive grids cannot plan", () => {
+  for (const [draft, scene, settings] of [
+    [spatial, { ...sceneInput, dataset: "server" }, defaultPlanningSettings],
+    [spatial, { ...sceneInput, file: "demo.pcd" }, defaultPlanningSettings],
+    [{ ...spatial, bound: false }, sceneInput, defaultPlanningSettings],
+    [{ ...spatial, start: null }, sceneInput, defaultPlanningSettings],
+    [{ ...spatial, points: [] }, sceneInput, defaultPlanningSettings],
+    [{ ...spatial, points: [...spatial.points, { ...spatial.points[0], id: "p2" }] }, sceneInput, defaultPlanningSettings],
+    [{ ...spatial, start: { ...spatial.start, z: -1 } }, sceneInput, defaultPlanningSettings],
+    [spatial, sceneInput, { ...defaultPlanningSettings, ceiling: "20" }],
+    [spatial, sceneInput, { ...defaultPlanningSettings, resolution: "0.1" }],
+    [spatial, sceneInput, { ...defaultPlanningSettings, origin: "" }],
+    [spatial, sceneInput, { ...defaultPlanningSettings, speed: "Infinity" }],
+  ]) { const result = prepareSpatialPlanning(draft, scene, settings); assert.equal(result.geometry, null); assert.ok(result.reasons.length); }
+});
