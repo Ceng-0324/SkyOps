@@ -91,10 +91,14 @@ const missionFailurePossibleCauses = [
   "The current mock scenario is unavailable or does not match the frontend contract.",
 ];
 
-export function MissionConsole() {
+export function MissionConsole({ initialTaskInput, onTaskInputChange }: {
+  initialTaskInput?: string;
+  onTaskInputChange?: (input: string) => void;
+} = {}) {
   const [locale, setLocale] = useState<Locale>("zh");
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
-  const [taskInput, setTaskInput] = useState(DEFAULT_TASK_INPUT);
+  const [taskInput, setTaskInput] = useState(initialTaskInput ?? DEFAULT_TASK_INPUT);
+  useEffect(() => { onTaskInputChange?.(taskInput); }, [taskInput, onTaskInputChange]);
   const [selectedIncident, setSelectedIncident] = useState(incidentPresets[0].event);
   const [missionCycle, setMissionCycle] = useState<MissionCycleState>({ status: "idle" });
   const [activeViewId, setActiveViewId] = useState<ConsoleViewId>("task");
