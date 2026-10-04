@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { isSpatialTaskDraft, type SpatialTaskDraft } from "./spatialTaskDraft";
 
 export type TemplateId = "blank" | "building" | "campus" | "mapping";
 export type MissionBrief = { name: string; goal: string; completion: string };
@@ -8,6 +9,7 @@ export type MissionDraft = MissionBrief & {
   rawInput: string;
   createdAt: string;
   updatedAt: string;
+  spatial?: SpatialTaskDraft;
 };
 export const DRAFT_STORAGE_KEY = "skyops.mission-drafts.v1";
 export const briefPresets: Record<TemplateId, MissionBrief> = {
@@ -39,6 +41,7 @@ function isDraft(value: unknown): value is MissionDraft {
     && typeof d.template === "string" && Object.hasOwn(briefPresets, d.template)
     && typeof d.rawInput === "string" && d.rawInput.length <= 16384
     && typeof d.createdAt === "string" && Number.isFinite(Date.parse(d.createdAt))
+    && (d.spatial === undefined || isSpatialTaskDraft(d.spatial))
     && typeof d.updatedAt === "string" && Number.isFinite(Date.parse(d.updatedAt));
 }
 

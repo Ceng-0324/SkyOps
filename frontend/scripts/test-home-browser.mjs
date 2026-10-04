@@ -111,21 +111,25 @@ try {
   assert.equal(await evaluate("document.querySelector('.drawer-submit').disabled"), true);
   await input("#create-name", "自定义验证任务"); await input("#create-goal", "检查目标建筑"); await input("#create-completion", "取得四面影像");
   await click(".drawer-submit");
-  await wait("document.querySelector('section[aria-label=任务工作区] textarea')");
-  assert.equal(await evaluate("document.querySelector('section[aria-label=任务工作区] textarea').value"), "检查目标建筑\n完成条件：取得四面影像");
+  await wait("document.querySelector('.ws-shell')");
+  await click(".ws-section-heading .ws-text-button");
+  await wait("document.querySelector('#ws-task-input')");
+  assert.equal(await evaluate("document.querySelector('#ws-task-input').value"), "检查目标建筑\n完成条件：取得四面影像");
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('skyops.mission-drafts.v1')).drafts.length"), 1);
-  await input('section[aria-label="任务工作区"] textarea', "修改后的任务\n完成条件：取得照片");
+  await input('#ws-task-input', "修改后的任务\n完成条件：取得照片");
   await wait("JSON.parse(localStorage.getItem('skyops.mission-drafts.v1')).drafts[0].rawInput.includes('修改后的任务')");
-  await click(".mission-entry-bar button");
+  await click('button[aria-label="返回工作台"]');
   await wait("!document.querySelector('.ops-home').hidden");
   await click(".task-action");
-  assert.equal(await evaluate("document.querySelector('section[aria-label=任务工作区] textarea').value"), "修改后的任务\n完成条件：取得照片");
+  assert.equal(await evaluate("document.querySelector('#ws-task-input').value"), "修改后的任务\n完成条件：取得照片");
   await evaluate("window.__beforeHomeReload = true");
   await send("Page.reload");
   await wait("!window.__beforeHomeReload && document.readyState === 'complete'");
-  await wait("document.querySelector('section[aria-label=任务工作区] textarea')");
-  assert.equal(await evaluate("document.querySelector('section[aria-label=任务工作区] textarea').value"), "修改后的任务\n完成条件：取得照片", "Reload resumes actual input");
-  await click(".mission-entry-bar button");
+  await wait("document.querySelector('.ws-shell')");
+  await click(".ws-section-heading .ws-text-button");
+  await wait("document.querySelector('#ws-task-input')");
+  assert.equal(await evaluate("document.querySelector('#ws-task-input').value"), "修改后的任务\n完成条件：取得照片", "Reload resumes actual input");
+  await click('button[aria-label="返回工作台"]');
   await input('.searchbox input', "不存在的任务");
   assert.equal(await evaluate("document.querySelectorAll('.scenario').length"), 0);
   await click(".gallery-empty button");
@@ -146,8 +150,8 @@ try {
   // A failed save remains usable, with a visible persistence warning.
   await evaluate("Storage.prototype.setItem = function(){throw new DOMException('quota','QuotaExceededError')}");
   await click('[data-template="mapping"] .scenario-footer button'); await click(".drawer-submit");
-  await wait("document.querySelector('.mission-entry-bar [role=alert]')");
-  await click(".mission-entry-bar button");
+  await wait("document.querySelector('.ws-root [role=alert]')");
+  await click('button[aria-label="返回工作台"]');
   assert.equal(await evaluate("document.querySelectorAll('.task').length"), 2);
   // Corrupt prior storage is left untouched, including when a new in-memory draft is created.
   await evaluate("window.__beforeHomeReload = true");
@@ -158,7 +162,7 @@ try {
   await send("Page.reload");
   await wait("!window.__beforeHomeReload && document.readyState === 'complete'"); await wait("document.querySelector('.home-error')");
   await click('[data-template="building"] .scenario-footer button'); await click(".drawer-submit");
-  await wait("document.querySelector('.mission-entry-bar')");
+  await wait("document.querySelector('.ws-shell')");
   assert.equal(await evaluate("localStorage.getItem('skyops.mission-drafts.v1')"), "{broken");
   assert.deepEqual(page.errors, []);
   console.log("Home browser passed: template/filter/search, modal focus and resize, validation, isolated drafts, workspace handoff, reload, responsive layouts, storage failure and corruption protection.");

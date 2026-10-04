@@ -1,10 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
 import { HomeDashboard } from "./features/mission/HomeDashboard";
 import { useMissionDrafts, type MissionDraft } from "./features/mission/missionDrafts";
 import "./styles/dashboard.css";
 
-const MissionConsole = lazy(() => import("./features/mission/MissionConsole").then(module => ({ default: module.MissionConsole })));
+const SpatialTaskWorkspace = lazy(() => import("./features/mission/SpatialTaskWorkspace").then(module => ({ default: module.SpatialTaskWorkspace })));
 const requestedTask = () => new URLSearchParams(window.location.search).get("task");
 
 export function App() {
@@ -26,7 +25,7 @@ export function App() {
   }, []);
   useEffect(() => {
     document.title = active ? `${active.name} · SkyOps` : "作业中心 · SkyOps";
-    document.querySelector<HTMLElement>(active ? ".mission-entry-bar strong" : "#home-heading")?.focus({ preventScroll: true });
+    if (!active) document.querySelector<HTMLElement>("#home-heading")?.focus({ preventScroll: true });
   }, [active?.id, active?.name]);
 
   function navigate(id: string | null) {
@@ -38,10 +37,8 @@ export function App() {
     if (id) setWorkspaceId(id);
     window.scrollTo({ top: 0 });
   }
-  const saveInput = useCallback((rawInput: string) => {
-    const current = drafts.find(d => d.id === workspaceId);
-    if (!current || current.rawInput === rawInput) return;
-    persist(drafts.map(d => d.id === workspaceId ? { ...d, rawInput, updatedAt: new Date().toISOString() } : d));
+  const saveWorkspace = useCallback((update: Pick<MissionDraft, "rawInput" | "spatial">) => {
+    persist(drafts.map(d => d.id === workspaceId ? { ...d, ...update, updatedAt: new Date().toISOString() } : d));
   }, [drafts, persist, workspaceId]);
   function create(draft: MissionDraft) {
     persist([draft, ...drafts]);
@@ -50,9 +47,8 @@ export function App() {
 
   return <>
     <HomeDashboard drafts={drafts} storageError={storageError} onCreate={create} onOpen={draft => navigate(draft.id)} visible={!active} />
-    {workspace && <section hidden={!active} aria-label="任务工作区">
-      <header className="mission-entry-bar"><button onClick={() => navigate(null)}><ArrowLeft size={15} />返回工作台</button><strong tabIndex={-1}>{workspace.name}</strong><span>本机草稿 · 模拟作业</span>{storageError && <p role="alert">{storageError}</p>}</header>
-      <Suspense fallback={<p className="mission-entry-bar" role="status">正在打开任务工作区…</p>}><MissionConsole key={workspace.id} initialTaskInput={workspace.rawInput} onTaskInputChange={saveInput} /></Suspense>
-    </section>}
+    {workspace && <Suspense fallback={active ? <p className="mission-entry-bar" role="status">正在打开任务工作区…</p> : null}>
+      <SpatialTaskWorkspace key={workspace.id} draft={workspace} storageError={storageError} onChange={saveWorkspace} onBack={() => navigate(null)} visible={Boolean(active)} />
+    </Suspense>}
   </>;
 }
