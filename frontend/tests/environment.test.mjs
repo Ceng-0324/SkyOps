@@ -246,3 +246,29 @@ test("selection only accepts current IDs and never survives a new detection with
   assert.equal(store.getState().selectedObstacleId, null);
   assert.equal(store.getState().result, null);
 });
+
+
+test("scene form preserves explicit parameters and rejects blank, invalid and unsafe integers", async () => {
+  const { defaultSceneInput, sceneRequest } = await import("../node_modules/.tmp/environment-tests/environment.mjs");
+  assert.deepEqual(sceneRequest(defaultSceneInput).request, { point_cloud_file: "demo.pcd", height_threshold: 0.5, min_points: 10, cluster_tolerance: 0.1 });
+  for (const patch of [{ file: " " }, { height: "" }, { height: "-1" }, { height: "Infinity" }, { minPoints: "0" }, { minPoints: "1.5" }, { minPoints: "9007199254740992" }, { tolerance: "" }, { tolerance: "0.09" }, { tolerance: "NaN" }]) {
+    const result = sceneRequest({ ...defaultSceneInput, ...patch });
+    assert.equal(result.request, null); assert.ok(result.error);
+  }
+  assert.equal(sceneRequest({ ...defaultSceneInput, height: "0", minPoints: "1" }).error, null);
+});
+
+test("local obstacle projections preserve metres, negative coordinates and degenerate boxes", async () => {
+  const { obstacleBounds, sceneBounds } = await import("../node_modules/.tmp/environment-tests/environment.mjs");
+  const o = { id: "a", position: [-10, 20, 5], size: [4, 6, 2], confidence: 0.5, obstacle_type: "unknown" };
+  assert.deepEqual(obstacleBounds(o, 1), { minimum: [-12, 17], maximum: [-8, 23] });
+  assert.deepEqual(obstacleBounds(o, 2), { minimum: [-12, 4], maximum: [-8, 6] });
+  const far = { ...o, position: [100, -20, 15], size: [0, 0, 0] };
+  const b = sceneBounds([o, far], 1);
+  assert.ok(b.minimum[0] < -12 && b.maximum[0] > 100 && b.minimum[1] < -20 && b.maximum[1] > 23);
+  const zero = sceneBounds([far], 2);
+  assert.ok(zero.minimum[0] < 100 && zero.maximum[0] > 100);
+  assert.ok(sceneBounds([], 1));
+  assert.equal(sceneBounds([{ ...o, position: [1e308, 0, 0], size: [1e308, 1, 1] }], 1), null);
+  assert.equal(obstacleBounds({ ...o, position: [1e308, 0, 0], size: [1.7e308, 1, 1] }, 1), null);
+});

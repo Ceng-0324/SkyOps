@@ -75,3 +75,12 @@ test("spatial persistence round-trips and rejects invalid frames, IDs and points
     assert.throws(() => readDrafts(storage(JSON.stringify({ version: 1, drafts: [{ ...draft, spatial: bad }] }))));
   }
 });
+
+
+test("scene settings survive reload including unfinished inputs, without saving detection results", () => {
+  const draft = makeDraft(brief, "building");
+  const scene = { dataset: "server", file: "site/input.pcd", height: "", minPoints: "10", tolerance: "0.1" };
+  const read = value => readDrafts(storage(JSON.stringify({ version: 1, drafts: [{ ...draft, scene: value }] })));
+  assert.deepEqual(read(scene)[0].scene, scene);
+  for (const patch of [{ dataset: "upload" }, { dataset: "demo" }, { height: 0.5 }, { file: "x".repeat(1025) }, { tolerance: "1".repeat(33) }]) assert.throws(() => read({ ...scene, ...patch }));
+});

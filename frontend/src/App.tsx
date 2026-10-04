@@ -37,7 +37,7 @@ export function App() {
     if (id) setWorkspaceId(id);
     window.scrollTo({ top: 0 });
   }
-  const saveWorkspace = useCallback((update: Pick<MissionDraft, "rawInput" | "spatial">) => {
+  const saveWorkspace = useCallback((update: Pick<MissionDraft, "rawInput" | "spatial" | "scene">) => {
     persist(drafts.map(d => d.id === workspaceId ? { ...d, ...update, updatedAt: new Date().toISOString() } : d));
   }, [drafts, persist, workspaceId]);
   function create(draft: MissionDraft) {

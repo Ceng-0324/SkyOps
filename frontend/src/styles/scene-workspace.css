@@ -1,0 +1,57 @@
+.ws-reference-map { position: absolute; inset: 0; }
+.ws-scene-parameters { border-top: 1px solid var(--ws-line); margin-top: 18px; padding-top: 14px; }
+.ws-scene-parameters summary { cursor: pointer; font-size: 12px; color: #d2e0ef; padding: 3px 0; }
+.ws-scene-parameters > p { margin-top: 10px; }
+.ws-scene-parameter { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; }
+.ws-scene-parameter input { width: 100px; padding: 7px 9px; }
+.ws-scene-result-heading { display: flex; justify-content: space-between; gap: 10px; margin: 15px 0; }
+.ws-scene-result-heading strong { font-weight: 500; font-size: 13px; }
+.ws-scene-result-heading > span { font-size: 10px; color: #e2c798; }
+.ws-obstacle-list { display: grid; gap: 8px; }
+.ws-obstacle-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 66px; padding: 10px; text-align: left; border: 1px solid #635e51; border-radius: 5px; background: #292b2b; }
+.ws-obstacle-row:hover, .ws-obstacle-row.is-selected { border-color: #c0a16e; background: #39352b; }
+.ws-obstacle-index { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border: 1px solid #b8a073; border-radius: 3px; color: #edcf9c; font-size: 10px; }
+.ws-obstacle-row > span:nth-child(2) { min-width: 0; flex: 1; }
+.ws-obstacle-row strong { display: block; overflow-wrap: anywhere; font-size: 12px; font-weight: 500; color: #ede0c6; }
+.ws-obstacle-row small { display: block; font-size: 10px; color: #c7c4b7; margin-top: 4px; }
+.ws-obstacle-height { flex: none; text-align: right; color: #e9d5af; font-size: 12px; font-variant-numeric: tabular-nums; max-width: 90px; overflow-wrap: anywhere; }
+.ws-scene-metadata { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--ws-line); font-size: 10px; }
+.ws-scene-metadata > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.ws-scene-metadata dt { flex: none; color: var(--ws-muted); }
+.ws-scene-metadata dd { margin: 0; text-align: right; overflow-wrap: anywhere; color: #d3dfec; }
+.ws-clear-detection { display: flex; justify-content: center; width: 100%; margin-top: 12px; }
+.ws-scene-footer > .ws-muted { margin-top: 10px; font-size: 10px; }
+.ws-obstacle-details h3 { font-size: 12px; font-weight: 500; margin-top: 20px; }
+.ws-scene-vector { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; padding: 14px 0; margin: 0 0 16px; border-bottom: 1px solid var(--ws-line); }
+.ws-scene-vector dt { font-size: 10px; color: #b8c9da; }
+.ws-scene-vector dd { color: #edd7b0; font-size: 13px; margin: 8px 0 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.ws-scene-map { position: absolute; inset: 0; isolation: isolate; background: #18232d; }
+.ws-scene-map .ws-scene-canvas { position: absolute; inset: 0; background: #18232d; font-family: inherit; z-index: 0; }
+.ws-scene-map .leaflet-container:focus-visible { outline-offset: -4px; }
+.ws-scene-map-heading { position: absolute; top: 18px; left: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: calc(100% - 82px); padding: 8px 12px; background: #18222ef5; border: 1px solid #60778b; border-radius: 5px; font-size: 12px; }
+.ws-scene-map-heading select { width: auto; margin: 0; font-size: 11px; padding: 5px 7px; }
+.ws-scene-map-heading > span { font-size: 10px; color: #d8bf95; }
+.ws-scene-map-tools { position: absolute; top: 18px; right: 18px; display: grid; gap: 3px; padding: 3px; background: #17222ef5; border: 1px solid #607387; border-radius: 5px; }
+.ws-scene-map-tools button[aria-pressed="false"] { color: #9aacbd; background: #29333d; }
+.ws-scene-locate { position: absolute; bottom: 85px; left: 20px; }
+.ws-scene-map-caption { position: absolute; bottom: 20px; left: 20px; display: flex; flex-wrap: wrap; gap: 8px 15px; max-width: calc(100% - 40px); padding: 8px 12px; color: #c8dbe7; border: 1px solid #526c80; border-radius: 5px; background: #17222eef; font-size: 11px; pointer-events: none; }
+.ws-scene-map-empty { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); width: min(350px,calc(100% - 45px)); text-align: center; padding: 24px; background: #18232df2; pointer-events: none; }
+.ws-scene-map-empty strong { display: block; font-size: 17px; font-weight: 500; margin-bottom: 12px; }
+.ws-scene-map-empty p { color: #b5c9db; font-size: 12px; line-height: 1.85; }
+.ws-scene-axis-label { font-size: 10px; font-variant-numeric: tabular-nums; color: #a7bccf; white-space: nowrap; pointer-events: none; }
+.ws-scene-axis-label > span { background: #18232dcc; padding: 1px 3px; }
+.ws-scene-marker-host { background: none; border: 0; }
+.ws-scene-map .ws-scene-marker { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #c8ae7d; border-radius: 50%; background: #34322a; color: #f0d7a5; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ws-scene-map .ws-scene-marker:hover, .ws-scene-map .ws-scene-marker.is-selected { background: #695536; border-color: #ffe0a5; color: #fff1d4; }
+.ws-scene-map .ws-scene-tooltip { background: #263442; color: #e6eaf0; border: 1px solid #8394a5; box-shadow: 0 5px 12px #08111d55; max-width: 250px; white-space: normal; overflow-wrap: anywhere; }
+.ws-scene-map .leaflet-control-container { display: none; }
+@media(max-width:1000px) and (min-width:761px) {
+  .ws-scene-map.has-detail { right: 0 !important; }
+}
+@media(max-width:760px) {
+  .ws-scene-map-heading { top: 14px; left: 12px; padding: 7px 9px; gap: 7px; max-width: calc(100% - 67px); }
+  .ws-scene-map-heading > span { flex-basis: 100%; }
+  .ws-scene-map-tools { top: 14px; right: 10px; }
+  .ws-scene-map-caption { left: 12px; bottom: 12px; max-width: calc(100% - 24px); font-size: 10px; }
+  .ws-scene-locate { left: 12px; bottom: 95px; }
+}

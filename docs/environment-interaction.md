@@ -1,7 +1,11 @@
 # F02 前端数据与交互接口
 
-本模块只提供点云检测客户端、Zustand 状态和 React 消费 hook，**没有接入页面、地图或可视化**。
-后续 UI 可复用它，不需要另写请求或检测状态机；F01 mission 环境摘要不受影响。
+工作区「场景」页已接入点云检测客户端和独立的 Zustand 状态；F01 mission 环境摘要不受影响。
+左侧选择点云与检测参数，中央显示局部米制坐标的 XY/XZ 投影，右侧查看选中障碍详情。
+任务页航拍影像与点云尚未配准，两者不叠加，也不把影像像素当作规划坐标。
+参数修改会清除旧结果，失败可重试，取消等待会忽略迟到响应但不承诺停止后端计算。
+每份任务草稿保存自己的数据选择与参数；检测结果仅保留在当前工作区，刷新或切换任务后需重新检测。
+返回首页再进入同一当前工作区会保留内存中的结果。
 后端字段、单位、安全与错误语义见 [点云 API 合同](point-cloud-api.md)。
 
 ## 模块入口
@@ -87,6 +91,13 @@ Zustand 5 selector 应返回稳定引用或原始值；不要每次创建新的 
 开发时 Vite 将 `/point-cloud` 代理至 `http://127.0.0.1:8000`，与其他 API 一致。
 生产使用共享 client 的 `VITE_API_BASE_URL` 或同源反向代理；Vite dev proxy 不是生产代理。
 
+## 页面入口
+
+- `ScenePanel.tsx`：数据设置、检测状态、障碍列表与详情。
+- `SceneMap.tsx`：基于 Leaflet `CRS.Simple` 的局部坐标图；包围盒保持实际尺寸，中心编号便于选择退化或微小障碍。
+- `sceneInput.ts` / `obstacleGeometry.ts`：参数校验和局部坐标投影。视口边距不改变障碍几何；超出可可靠绘制范围的坐标显式提示，仍可查看列表数值。
+- `SpatialTaskWorkspace.tsx`：复用工作区自己的 `environment` store、可调宽面板和移动端切换。
+
 ## 验证与可复现 smoke
 
 ```bash
@@ -94,6 +105,9 @@ cd frontend
 npm ci
 npm test
 npm run build
+
+# 已运行前端和真实 backend，Chrome 开启 CDP（默认端口 9223）：
+SKYOPS_UI_BASE_URL=http://127.0.0.1:5173 node scripts/test-scene-browser.mjs
 
 # 已运行真实 backend 时（只测试数据层，不验证 UI）：
 SKYOPS_TEST_API_BASE_URL=http://127.0.0.1:8000 npm run test:environment:smoke
