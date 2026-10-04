@@ -96,9 +96,40 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.ws-warning').length"),0);
   assert.equal(await evaluate("document.querySelector('.ws-tree-nodes').textContent.includes('示例建筑 A')"),true);
   await shot('task-parsed'); await click('button[aria-label="关闭详情"]');
+  // Both keyboard placement modes reject the raw out-of-image center before rounding/clamping.
+  for (const label of ['添加', '在地图上设置']) {
+    await button(label);
+    await evaluate("document.querySelector('[data-testid=reference-map]').focus()");
+    for (let i = 0; i < 32; i++) {
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+    }
+    await wait("document.querySelector('[data-testid=reference-map]').getAttribute('viewBox') === '1280 0 1280 1280'");
+    const before = (await saved()).spatial;
+    for (const [key, code, windowsVirtualKeyCode] of [['Enter', 'Enter', 13], [' ', 'Space', 32]]) {
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode });
+      await evaluate("new Promise(r=>requestAnimationFrame(r))");
+      assert.deepEqual((await saved()).spatial, before, `${label}: ${code} must not persist a clamped point`);
+      await wait("document.querySelector('.ws-map-notice')?.textContent.includes('请在参考影像范围内放置点位')");
+    }
+    await button('完成'); await click('button[aria-label="恢复初始视图"]');
+    await click('button[aria-label="关闭地图提示"]');
+  }
+  await button('在地图上设置');
+  for (let i = 0; i < 16; i++) {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+  }
+  await wait("document.querySelector('[data-testid=reference-map]').getAttribute('viewBox') === '640 0 1280 1280'");
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await wait("JSON.parse(localStorage.getItem('skyops.mission-drafts.v1')).drafts[0].spatial.start?.x === 1280");
+  assert.equal((await saved()).spatial.start.y, 640, 'An exact image boundary remains a valid keyboard position');
+  await click('button[aria-label="恢复初始视图"]');
   await button('添加'); await mapClick(790,602); await mapClick(982,781); await mapClick(752,954); await button('完成');
   assert.equal((await saved()).spatial.points.length,3);
-  await button('在地图上设置'); await mapClick(493,977);
+  await button('重新设置位置'); await mapClick(493,977);
   assert.equal((await saved()).spatial.start.id,'start');
   await click('.ws-point-row');
   await input('#ws-point-height','35.5'); await button('保存高度');

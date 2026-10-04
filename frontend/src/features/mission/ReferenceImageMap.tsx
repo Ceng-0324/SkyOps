@@ -44,6 +44,16 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
     if (mode) { setLayers(l => ({ ...l, points: true })); svg.current?.focus({ preventScroll: true }); }
   }, [mode]);
 
+  function place(x: number, y: number) {
+    if (!mode) return;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1280 || y < 0 || y > 1280) {
+      setNotice("请在参考影像范围内放置点位。");
+      return;
+    }
+    onPlace(mode, clamp(x), clamp(y));
+    setNotice("");
+  }
+
   function begin(e: PointerEvent<SVGSVGElement>) {
     if (e.button !== 0) return;
     const target = e.target as Element;
@@ -71,8 +81,7 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
     if (!cancelled) {
       if (g.point && g.moved) onMove(g.point.id, { x: clamp(g.point.x + (e.clientX - g.cx) / g.scale), y: clamp(g.point.y + (e.clientY - g.cy) / g.scale) });
       else if (!g.point && !g.moved && mode) {
-        if (g.originX < 0 || g.originX > 1280 || g.originY < 0 || g.originY > 1280) setNotice("请在参考影像范围内放置点位。");
-        else { onPlace(mode, clamp(g.originX), clamp(g.originY)); setNotice(""); }
+        place(g.originX, g.originY);
       }
     }
     gesture.current = null; setDragPoint(null);
@@ -93,7 +102,7 @@ export function ReferenceImageMap({ spatial, selected, mode, onSelect, onPlace, 
       onKeyDown={e => {
         if (e.key === "Escape") { onFinish(); return; }
         if (e.target !== e.currentTarget) return;
-        if ((e.key === "Enter" || e.key === " ") && mode) { e.preventDefault(); onPlace(mode, clamp(camera.x + camera.size / 2), clamp(camera.y + camera.size / 2)); }
+        if ((e.key === "Enter" || e.key === " ") && mode) { e.preventDefault(); place(camera.x + camera.size / 2, camera.y + camera.size / 2); }
         if (e.key === "+" || e.key === "=") { e.preventDefault(); zoom(1 / 1.25); }
         if (e.key === "-") { e.preventDefault(); zoom(1.25); }
         const offsets: Record<string, [number, number]> = { ArrowLeft: [-40, 0], ArrowRight: [40, 0], ArrowUp: [0, -40], ArrowDown: [0, 40] };
