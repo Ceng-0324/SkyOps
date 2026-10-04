@@ -43,8 +43,7 @@ class EvaluationCaseFormatError(EvaluationDatasetError):
 
 def load_all_evaluation_cases(case_dir: str | Path | None = None) -> list[EvaluationCase]:
     return [
-        fixture.evaluation_case
-        for fixture in load_all_evaluation_case_fixtures(case_dir=case_dir)
+        fixture.evaluation_case for fixture in load_all_evaluation_case_fixtures(case_dir=case_dir)
     ]
 
 

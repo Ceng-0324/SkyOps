@@ -11,4 +11,3 @@ class AirspaceConstraint(BaseModel):
     altitude_limit_m: int | None = Field(default=None, ge=0)
     compliance_risk_level: RiskLevel
     explanation: str
-

@@ -94,10 +94,7 @@ def score_hard_constraints(
         passed=not failed_results,
         matched_items=[result.id for result in results if result.passed],
         missing_items=[result.id for result in failed_results],
-        failure_reasons=[
-            f"{result.id}: {result.reason}"
-            for result in failed_results
-        ],
+        failure_reasons=[f"{result.id}: {result.reason}" for result in failed_results],
     )
     return score, results, metric_score
 
@@ -147,11 +144,7 @@ def score_risk_recall(
             )
         )
 
-    unexpected_risks = [
-        risk.id
-        for risk in actual_risks
-        if risk.id not in matched_actual_ids
-    ]
+    unexpected_risks = [risk.id for risk in actual_risks if risk.id not in matched_actual_ids]
     recalled_count = sum(result.passed for result in results)
     score = recalled_count / len(expected_risks) if expected_risks else 1.0
     missing_items = [result.id for result in results if not result.passed]
@@ -243,11 +236,7 @@ def score_incident_response(
             )
         )
 
-    score = (
-        sum(result.passed for result in results) / len(results)
-        if results
-        else 1.0
-    )
+    score = sum(result.passed for result in results) / len(results) if results else 1.0
     missing_items = [result.id for result in results if not result.passed]
     metric_score = MetricScore(
         metric=EvaluationMetricName.INCIDENT_RESPONSE_SCORE,
@@ -327,9 +316,7 @@ def score_plan_efficiency(
     matched_items = [name for name, component_score, _ in components if component_score >= 0.7]
     missing_items = [name for name, component_score, _ in components if component_score < 0.7]
     failure_reasons = [
-        explanation
-        for _, component_score, explanation in components
-        if component_score < 0.7
+        explanation for _, component_score, explanation in components if component_score < 0.7
     ]
 
     if not hard_constraints_passed:
@@ -386,9 +373,7 @@ def score_evaluation_case(
         efficiency_metric,
     ]
     blocking_metrics = [
-        metric
-        for metric in metric_scores
-        if get_metric_contract(metric.metric).blocks_overall_pass
+        metric for metric in metric_scores if get_metric_contract(metric.metric).blocks_overall_pass
     ]
 
     return EvaluationResult(
@@ -407,9 +392,7 @@ def score_evaluation_case(
         incident_response_results=incident_results,
         explainability_results=explainability_results,
         failure_reasons=[
-            reason
-            for metric in blocking_metrics
-            for reason in metric.failure_reasons
+            reason for metric in blocking_metrics for reason in metric.failure_reasons
         ],
         source_type=evaluation_case.source_type,
     )
@@ -823,9 +806,7 @@ def _decision_text(
     if include_alternatives:
         parts.append(" ".join(decision.alternatives_considered))
 
-    return _normalized(
-        " ".join(parts)
-    )
+    return _normalized(" ".join(parts))
 
 
 def _contains_any(text: str, markers: Iterable[str]) -> bool:

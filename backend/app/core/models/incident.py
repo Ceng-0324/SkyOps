@@ -23,4 +23,3 @@ class ReplanDecision(BaseModel):
     human_takeover_required: bool
     reason: str
     alternatives_considered: list[str] = Field(default_factory=list)
-

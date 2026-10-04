@@ -12,187 +12,82 @@
 
 ---
 
-## 第 2 步：F02 环境属性识别（2 周，优先级 P0）
+## F01–F03 当前落地范围（2026-10-05）
 
-**原因**：F02 是基础，F03 路径规划依赖障碍检测。
+本阶段交付 **mock / simulated 数据下的任务 → 场景 → 候选方案闭环**。
+功能与本地验证完成；本分支最新收尾仍需推送、PR CI、审查及合并，不能据本地通过宣称远端验收完成。
+后续规划内容与下述已实现功能分开记录。
 
-### Week 1: 后端实现
+### F01：任务理解与空间编辑
 
-#### 1. 创建数据模型（Day 1）
-```python
-backend/app/core/models/point_cloud.py
-- PointCloud: 点云数据模型
-- Obstacle: 障碍物模型
-- ObstacleDetectionResult: 检测结果
+- [x] JSON DSL、受限中文解析、澄清及前置依赖推导。
+- [x] `/missions/plan` 接入任务分解，保留场景参考计划兼容契约。
+- [x] 任务树、依赖与澄清展示；对象 A 绑定、观察点和起止点编辑。
+- [x] 原文、空间点位与场景输入按任务保存到本机，错误与任务隔离有回归。
+
+入口：`backend/app/core/task_decomposition/`、`frontend/src/features/mission/TaskTreeViewer.tsx`、
+`SpatialTaskWorkspace.tsx`、`spatialTaskDraft.ts`。
+边界：受限文本解析不等于任意自然语言或语音/图像多模态理解；当前新工作区只绑定对象 A。
+
+### F02：点云障碍检测与空间展示
+
+- [x] 点云加载、阈值过滤、聚类与障碍包围盒检测，受控目录及异常输入校验。
+- [x] `/point-cloud/detect-obstacles` 真实 API 接入独立环境状态。
+- [x] Leaflet XY/XZ 视图、缩放平移、障碍选择与详情、可调宽面板。
+- [x] 配套 mock 校园点云与影像模拟配准，失败时可退回坐标图。
+- [x] F02 模块行覆盖率超过 80%：当前 94%（270 条语句，16 条未覆盖）。
+
+入口：`backend/app/core/point_cloud/`、`backend/app/core/models/point_cloud.py`、
+`frontend/src/features/environment/`。覆盖率统计包含 F02 路由、schema、模型、加载器和检测器，
+不是整个后端的覆盖率。运行命令见下文。
+边界：检测类型当前可为 unknown；包围盒与启发式置信度不等于物体语义识别或安全结论。
+真实地理配准与通用影像/点云关联不在本阶段交付内。
+
+### F03：局部候选规划与比较
+
+- [x] 全面覆盖、重点观察、补充采集三种策略，任务级优先和完成声明。
+- [x] 三维直连检查与 A*、连续碰撞检查、边界/高度/预算/续航约束。
+- [x] `/missions/plan-candidates`，可行候选评分、推荐与等价结果。
+- [x] 三方案列表、单条对照叠加、路线箭头、访问点联动、评分拆解与当前草案选择。
+- [x] 接入任务页点位与 F02 检测快照；修改输入后使旧结果及迟到响应失效。
+
+入口：`backend/app/core/strategy_composer/`、`backend/app/core/planning/path_optimizer.py`、
+`frontend/src/features/mission/SpatialPlanPanel.tsx`、`spatialPlanning.ts`、`workspaceStore.ts`。
+边界：三种策略不保证三条不同且可行的路线；只有可行候选有路径和评分。
+当前规划闭环使用配套 mock 校园和对象 A，规则取自显式参考场景；不是持续多轮对话或飞行授权。
+候选、参数、任务声明和草案选择仅保留在当前工作区内存，刷新后重新计算。
+
+### 本地验收与发布门槛
+
+- [x] 后端全套 438 项测试、Ruff lint 及格式检查。
+- [x] 前端 99 项测试、TypeScript 与生产构建。
+- [x] 首页、F01 编辑、F02 场景、F03 方案四条浏览器回归；桌面、窄桌面及手机。
+- [x] 独立场景参考工具仍可运行任务、风险图表、事件和复盘；不冒充当前候选的执行结果。
+- [ ] 最新收尾提交推送后的 PR CI、审查与合并（由推送后实际状态确认）。
+
+复现命令：
+
+```bash
+cd backend
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+# 临时验证工具，不添加项目核心依赖；按目录采集，避免模块探测提前导入 Pydantic。
+uv run --with coverage python -m coverage run --source=app -m pytest
+uv run --with coverage python -m coverage report --include='app/core/point_cloud/*,app/core/models/point_cloud.py,app/api/routes/point_cloud.py,app/api/schemas/point_cloud.py' --fail-under=80
+
+cd ../frontend
+npm ci
+npm test
+npm run build
+# 真实后端 + Vite 代理已运行；Chrome 使用 --remote-debugging-port=9223。
+SKYOPS_UI_BASE_URL=http://127.0.0.1:5173 npm run test:browser
+# 自动启动临时后端的客户端/store 集成测试，CI 同样执行。
+../backend/.venv/bin/python scripts/smoke-environment.py --workspace
 ```
 
-#### 2. 实现点云加载器（Day 1-2）
-```python
-backend/app/core/point_cloud/loader.py
-- load_point_cloud_from_file() → PointCloud
-- 支持 mock .pcd 文件
-```
-
-#### 3. 实现障碍检测（Day 2-3）
-```python
-backend/app/core/point_cloud/detector.py
-- detect_obstacles(point_cloud, threshold) → list[Obstacle]
-- 基于高度阈值的简单算法
-```
-
-#### 4. API 端点（Day 3-4）
-```python
-backend/app/api/routes/point_cloud.py
-POST /point-cloud/detect-obstacles
-```
-
-#### 5. 单元测试（Day 4-5）
-```python
-backend/tests/unit/test_point_cloud_detector.py
-- test_detect_obstacles_from_mock_data()
-- test_threshold_filtering()
-```
-
-**验收标准**：
-- [ ] API 端点可调用
-- [ ] 测试覆盖率 >80%
-- [ ] 通过 CI
-
----
-
-### Week 2: 前端实现
-
-#### 1. 创建 2D 地图组件（Day 1-2）
-```tsx
-frontend/src/components/map/MapContainer.tsx
-- 基于 Leaflet 的 2D 地图
-- 支持缩放、平移
-```
-
-#### 2. 障碍物标记组件（Day 2-3）
-```tsx
-frontend/src/components/map/ObstacleMarkers.tsx
-- 在地图上标记障碍物位置
-- 悬停显示详情
-```
-
-#### 3. 集成到 Plan 视图（Day 3-4）
-```tsx
-frontend/src/features/mission/MissionPlanPanel.tsx
-- 嵌入 MapContainer
-- 调用障碍检测 API
-- 显示检测结果
-```
-
-#### 4. Zustand 状态管理（Day 4-5）
-```tsx
-frontend/src/stores/environmentStore.ts
-- 管理障碍物状态
-- 管理点云元数据
-```
-
-**验收标准**：
-- [ ] 地图可正常显示
-- [ ] 障碍物标记可见
-- [ ] 与后端 API 集成成功
-
----
-
-## 第 3 步：F01 多模态任务理解（1 周，优先级 P0）
-
-**原因**：任务分解是所有功能的入口。
-
-### 实现内容
-
-#### 1. 任务分解 DSL（Day 1-2）
-```python
-backend/app/core/task_decomposition/parser.py
-- parse_task_input(raw_input: str) → TaskTree
-- 支持简单的结构化输入解析
-```
-
-#### 2. 依赖关系推导（Day 2-3）
-```python
-backend/app/core/task_decomposition/dependency.py
-- build_dependency_graph(task_tree: TaskTree) → nx.DiGraph
-```
-
-#### 3. 改造 mission_planner（Day 3-4）
-```python
-backend/app/core/orchestration/mission_planner.py
-- 集成任务分解逻辑
-- 保持向后兼容
-```
-
-#### 4. 前端任务树可视化（Day 4-5）
-```tsx
-frontend/src/components/task/TaskTreeViewer.tsx
-- 使用 Recharts 或 D3.js 展示任务树
-```
-
-**验收标准**：
-- [ ] 能解析自然语言任务
-- [ ] 能生成任务树和依赖图
-- [ ] 前端能可视化任务树
-
----
-
-## 第 4 步：F03 对话式任务与路径规划（2 周，优先级 P0）
-
-**原因**：核心规划能力。
-
-### Week 1: 策略组合框架
-
-#### 1. 策略定义（Day 1-2）
-```python
-backend/app/core/strategy_composer/strategies.py
-- CoverageStrategy
-- FocusedObservationStrategy
-- SupplementaryCaptureStrategy
-```
-
-#### 2. 方案生成器（Day 2-4）
-```python
-backend/app/core/strategy_composer/generator.py
-- generate_candidate_plans() → list[MissionPlan]
-- 结合 F02 障碍数据
-```
-
-#### 3. 路径优化（Day 4-5）
-```python
-backend/app/core/planning/path_optimizer.py
-- optimize_path(waypoints, obstacles) → Path
-- 使用 RRT* 或 A*
-```
-
-### Week 2: 方案比较与前端
-
-#### 1. 方案评分（Day 1-2）
-```python
-backend/app/core/strategy_composer/scorer.py
-- score_plan(plan) → PlanScore
-- 多目标：完成度、时间、风险
-```
-
-#### 2. 改造 plan_mission（Day 2-3）
-```python
-backend/app/core/orchestration/mission_planner.py
-- 返回 list[MissionPlanningResult]
-- 支持多方案
-```
-
-#### 3. 前端方案比较界面（Day 3-5）
-```tsx
-frontend/src/features/mission/PlanComparisonPanel.tsx
-- 并排展示多个方案
-- 差异高亮
-- 用户选择
-```
-
-**验收标准**：
-- [ ] 能生成 ≥3 个候选方案
-- [ ] 每个方案有评分
-- [ ] 前端能比较方案
+30 个既有后端文件的格式债已清理，CI 增加 `ruff format --check .` 防止回归。
+UI 截图仅保留根目录 `skyops-workspace-preview.png`，属于本地效果图，不提交。
 
 ---
 
@@ -281,31 +176,35 @@ frontend/src/components/voice/VoiceInput.tsx
 
 ## 并行任务：前端重构
 
-### 持续进行
+### 已完成：主工作区
 
-#### 1. 五视图重构
-- Task 视图：集成任务树
-- Plan 视图：集成地图 + 方案比较
-- Risk 视图：集成热力图
-- Incident 视图：集成重规划可视化
-- Review 视图：集成时间线
+- [x] 深色总览工作台、模板入口、创建抽屉与本机任务草稿。
+- [x] 任务 / 场景 / 方案工作区，地图与可拖宽面板，手机布局与键盘交互。
+- [x] F01–F03 请求状态使用独立 Zustand workspace/environment stores，UI 瞬时状态保留 React hooks。
+- [x] 清理未采用的浅色工作区草稿、重复地图/比较组件及失效浏览器脚本。
 
-#### 2. 状态管理迁移
-- 从组件 state → Zustand stores
-- 统一数据流
+### 保留边界与后续工作
+
+`ScenarioReferenceConsole.tsx` 仅承载原有场景模板参考能力，从任务页显式打开。
+风险、事件、复盘仍是参考演示；F04–F08 接入当前候选路径后再迁入新工作区，
+因此不能把本阶段完成等同于全站五视图全部重构。风险图表按需加载，不再使参考入口打包超过 500 kB。
+
+- [ ] Risk：当前候选的风险预演与可视化。
+- [ ] Incident：与当前候选关联的事件响应和重规划。
+- [ ] Review：真实任务进展、证据与时间线。
 
 ---
 
 ## 里程碑检查点
 
 ### M1.1: F02 完成（Week 2 结束）
-- [ ] 障碍检测 API 可用
-- [ ] 2D 地图可视化完成
+- [x] 障碍检测 API 可用
+- [x] 2D 地图可视化完成
 
 ### M1.2: F01-F03 完成（Week 5 结束）
-- [ ] 任务分解可用
-- [ ] 多方案生成可用
-- [ ] 路径规划可用
+- [x] 任务分解可用
+- [x] 多方案生成可用
+- [x] 路径规划可用
 
 ### M1.3: F04-F08 完成（Week 9 结束）
 - [ ] 风险预演可用
@@ -325,9 +224,9 @@ frontend/src/components/voice/VoiceInput.tsx
 | 任务 | 时间 | 状态 |
 |------|------|------|
 | 环境准备 | 1-2 天 | ✅ 已完成 |
-| F02 | 2 周 | 📋 下一步 |
-| F01 | 1 周 | 📋 待开始 |
-| F03 | 2 周 | 📋 待开始 |
+| F02 | 2 周 | ✅ 阶段范围已落地，待分支发布验收 |
+| F01 | 1 周 | ✅ 阶段范围已落地，待分支发布验收 |
+| F03 | 2 周 | ✅ 阶段范围已落地，待分支发布验收 |
 | F04-F06 | 2 周 | 📋 待开始 |
 | F07-F08 | 1 周 | 📋 待开始 |
 | F09-F10 | 2 周 | 📋 待开始 |

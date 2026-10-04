@@ -36,8 +36,7 @@ def test_replan_mission_returns_conservative_decision_for_wind_spike() -> None:
     assert decision.human_takeover_required is True
     assert "preserve collected imagery and telemetry" in decision.actions
     assert all(
-        alternative.startswith("rejected:")
-        for alternative in decision.alternatives_considered
+        alternative.startswith("rejected:") for alternative in decision.alternatives_considered
     )
 
 

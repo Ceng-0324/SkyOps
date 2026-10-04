@@ -14,4 +14,3 @@ def test_health_check_returns_backend_status() -> None:
         "service": "skyops-agent",
         "mode": "mock",
     }
-

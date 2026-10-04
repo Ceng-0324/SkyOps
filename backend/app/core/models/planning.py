@@ -27,4 +27,3 @@ class MissionPlan(BaseModel):
     expected_coverage_percent: int = Field(ge=0, le=100)
     estimated_duration_minutes: int = Field(ge=0)
     explanation: str
-

@@ -26,7 +26,15 @@ export async function apiRequest<TResponse>(
 async function readErrorDetail(response: Response): Promise<string | null> {
   try {
     const payload = (await response.json()) as { detail?: unknown };
-    return typeof payload.detail === "string" ? payload.detail : null;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (Array.isArray(payload.detail)) {
+      return payload.detail.flatMap((item: unknown) => {
+        if (!item || typeof item !== "object" || !("msg" in item) || typeof item.msg !== "string") return [];
+        const location = "loc" in item && Array.isArray(item.loc) ? item.loc.join(".") : "request";
+        return [`${location}: ${item.msg}`];
+      }).join("; ") || null;
+    }
+    return null;
   } catch {
     return null;
   }

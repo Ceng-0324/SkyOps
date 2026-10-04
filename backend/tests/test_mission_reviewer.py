@@ -75,7 +75,4 @@ def test_build_mission_review_uses_replan_decisions_as_review_evidence() -> None
         "decision=return_to_home_and_split_makeup_flight" in item
         for item in review.risk_trigger_log
     )
-    assert any(
-        "larger return battery margin" in item
-        for item in review.next_mission_optimizations
-    )
+    assert any("larger return battery margin" in item for item in review.next_mission_optimizations)

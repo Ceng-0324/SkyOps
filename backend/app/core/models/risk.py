@@ -14,4 +14,3 @@ class RiskItem(BaseModel):
     mitigation: str
     evidence: list[str] = Field(default_factory=list)
     requires_human_confirmation: bool = False
-

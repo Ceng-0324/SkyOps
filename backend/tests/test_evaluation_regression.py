@@ -102,10 +102,7 @@ def test_regression_loader_returns_deterministic_results_without_external_data()
     second_fixtures = load_all_evaluation_case_fixtures()
     first_case_ids = [fixture.evaluation_case.case_id for fixture in first_fixtures]
     second_case_ids = [fixture.evaluation_case.case_id for fixture in second_fixtures]
-    serialized_dataset = " ".join(
-        fixture.model_dump_json().lower()
-        for fixture in first_fixtures
-    )
+    serialized_dataset = " ".join(fixture.model_dump_json().lower() for fixture in first_fixtures)
 
     assert first_case_ids == second_case_ids
     assert len(first_case_ids) == len(set(first_case_ids))
@@ -180,8 +177,7 @@ def test_regression_risk_recall_scorer_reports_missing_expected_risk() -> None:
     assert first_metric.passed is False
     assert first_metric.missing_items == ["gps_confidence_low"]
     assert (
-        "missing expected risk navigation:gps_confidence < 0.65"
-        in first_metric.failure_reasons[0]
+        "missing expected risk navigation:gps_confidence < 0.65" in first_metric.failure_reasons[0]
     )
 
 
@@ -263,8 +259,7 @@ def test_regression_explainability_scorer_reports_missing_reason_and_evidence() 
     assert metric.passed is False
     assert "explanation-facts" in failed_by_id
     assert (
-        "human_explanation.facts is missing or empty."
-        == failed_by_id["explanation-facts"].reason
+        "human_explanation.facts is missing or empty." == failed_by_id["explanation-facts"].reason
     )
     assert f"explanation-return-{incident.id}" in failed_by_id
     assert "must include a reason" in failed_by_id[f"explanation-return-{incident.id}"].reason
@@ -277,8 +272,7 @@ def test_regression_runner_report_aggregates_counts_scores_and_failure_reasons()
 
     report = build_evaluation_report(results=results, cases=cases)
     failed_cases_by_id = {
-        failed_case["case_id"]: failed_case
-        for failed_case in report["failed_cases"]
+        failed_case["case_id"]: failed_case for failed_case in report["failed_cases"]
     }
 
     assert report["case_count"] == len(results)
@@ -299,8 +293,7 @@ def test_regression_runner_report_aggregates_counts_scores_and_failure_reasons()
     )
     assert report["incident_response_avg"] == round(
         sum(
-            metric_score(result, EvaluationMetricName.INCIDENT_RESPONSE_SCORE)
-            for result in results
+            metric_score(result, EvaluationMetricName.INCIDENT_RESPONSE_SCORE) for result in results
         )
         / len(results),
         4,
@@ -328,8 +321,7 @@ def test_regression_runner_output_is_deterministic_and_uses_fixed_timestamps() -
 
     assert first_results == second_results
     assert all(
-        result.generated_at == DETERMINISTIC_EVALUATION_GENERATED_AT
-        for result in first_results
+        result.generated_at == DETERMINISTIC_EVALUATION_GENERATED_AT for result in first_results
     )
 
 

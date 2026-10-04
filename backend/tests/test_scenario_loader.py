@@ -17,4 +17,3 @@ def test_load_mission_scenario_returns_mock_demo_data() -> None:
 def test_load_mission_scenario_raises_for_unknown_scenario() -> None:
     with pytest.raises(ScenarioNotFoundError):
         load_mission_scenario("unknown_scenario")
-

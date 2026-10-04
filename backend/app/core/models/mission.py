@@ -14,4 +14,3 @@ class MissionTask(BaseModel):
     risk_preference: str
     special_constraints: list[str] = Field(default_factory=list)
     source_type: DataSourceType = DataSourceType.MOCK
-

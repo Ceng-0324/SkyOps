@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { API_BASE_URL } from "../../api/client";
 import { fetchBackendHealth } from "../../api/health";
@@ -25,7 +25,6 @@ import {
   type ConsoleViewId,
 } from "./MissionWorkspaceChrome";
 import { RiskPanel } from "./RiskPanel";
-import { RiskChartsPanel } from "./RiskChartsPanel";
 import { SafetyThresholdPanel } from "./SafetyThresholdPanel";
 import { SandboxMapPanel } from "./SandboxMapPanel";
 import { StatusStrip } from "./StatusStrip";
@@ -34,6 +33,8 @@ import { formatCheckEndpoint, missionConsoleCopy, type Locale } from "./i18n";
 import { incidentPresets } from "./incidentPresets";
 import type { HealthState, MissionCycleState } from "./types";
 import { badgeStyles, buttonStyles, cn, layoutStyles, textStyles } from "./uiTokens";
+
+const RiskChartsPanel = lazy(() => import("./RiskChartsPanel").then(m => ({ default: m.RiskChartsPanel })));
 
 function LanguageToggle({
   locale,
@@ -91,10 +92,14 @@ const missionFailurePossibleCauses = [
   "The current mock scenario is unavailable or does not match the frontend contract.",
 ];
 
-export function MissionConsole() {
+export function ScenarioReferenceConsole({ initialTaskInput, onTaskInputChange }: {
+  initialTaskInput?: string;
+  onTaskInputChange?: (input: string) => void;
+} = {}) {
   const [locale, setLocale] = useState<Locale>("zh");
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
-  const [taskInput, setTaskInput] = useState(DEFAULT_TASK_INPUT);
+  const [taskInput, setTaskInput] = useState(initialTaskInput ?? DEFAULT_TASK_INPUT);
+  useEffect(() => { onTaskInputChange?.(taskInput); }, [taskInput, onTaskInputChange]);
   const [selectedIncident, setSelectedIncident] = useState(incidentPresets[0].event);
   const [missionCycle, setMissionCycle] = useState<MissionCycleState>({ status: "idle" });
   const [activeViewId, setActiveViewId] = useState<ConsoleViewId>("task");
@@ -268,7 +273,7 @@ export function MissionConsole() {
       return (
         <section className={layoutStyles.fullWidthGrid}>
           <RiskPanel locale={locale} missionCycle={missionCycle} />
-          <RiskChartsPanel locale={locale} missionCycle={missionCycle} />
+          <Suspense fallback={<p role="status">{locale === "zh" ? "加载风险图表…" : "Loading risk charts…"}</p>}><RiskChartsPanel locale={locale} missionCycle={missionCycle} /></Suspense>
           <HumanExplanationPanel locale={locale} missionCycle={missionCycle} />
         </section>
       );
@@ -293,7 +298,7 @@ export function MissionConsole() {
     return (
       <section className={layoutStyles.fullWidthGrid}>
         <MissionReviewPanel locale={locale} missionCycle={missionCycle} />
-        <RiskChartsPanel locale={locale} missionCycle={missionCycle} variant="review" />
+        <Suspense fallback={<p role="status">{locale === "zh" ? "加载风险图表…" : "Loading risk charts…"}</p>}><RiskChartsPanel locale={locale} missionCycle={missionCycle} variant="review" /></Suspense>
         <HumanExplanationPanel locale={locale} missionCycle={missionCycle} />
       </section>
     );
