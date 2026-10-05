@@ -3,6 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Focus, Layers, Minus, Plus } from "lucide-react";
 import type { Candidate, PlanningGeometry } from "../../api/candidates";
+import type { Obstacle, ObstacleDetectionResult } from "../../api/pointCloud";
 import type { EnvironmentState } from "./environmentStore";
 import { obstacleBounds, sceneBounds, type ObstacleBounds, type SceneProjection } from "./obstacleGeometry";
 import imageUrl from "../../public/scenarios/workspace-map.jpg";
@@ -10,8 +11,35 @@ import { imageToMockLocal, mockCampus } from "./mockCampus";
 import { sceneNumber, sceneSourceNames } from "./sceneInput";
 
 const leafletBounds = (b: ObstacleBounds): L.LatLngBoundsExpression => [[b.minimum[1], b.minimum[0]], [b.maximum[1], b.maximum[0]]];
-function tooltip(text: string): HTMLSpanElement {
-  const span = document.createElement("span"); span.textContent = text; return span;
+function obstacleType(obstacle: Obstacle): string {
+  return obstacle.obstacle_type === "unknown" ? "未识别" : obstacle.obstacle_type;
+}
+
+function obstacleSummaryText(obstacle: Obstacle, result: ObstacleDetectionResult): string {
+  const vector = (values: number[]) => values.map(sceneNumber).join(" / ");
+  return `编号：${obstacle.id}；类型：${obstacleType(obstacle)}；中心 XYZ：${vector(obstacle.position)} m；尺寸 XYZ：${vector(obstacle.size)} m；数据来源：${sceneSourceNames[result.source]}；局部米制单位`;
+}
+
+function obstacleSummary(obstacle: Obstacle, result: ObstacleDetectionResult): HTMLDivElement {
+  const root = document.createElement("div");
+  root.className = "ws-obstacle-summary";
+  const title = document.createElement("strong");
+  title.textContent = `编号 ${obstacle.id}`;
+  root.append(title);
+  for (const [label, value] of [
+    ["类型", obstacleType(obstacle)],
+    ["中心 XYZ / m", obstacle.position.map(sceneNumber).join(" / ")],
+    ["尺寸 XYZ / m", obstacle.size.map(sceneNumber).join(" / ")],
+    ["数据来源", `${sceneSourceNames[result.source]} · 局部米制坐标`],
+  ]) {
+    const line = document.createElement("span");
+    line.className = "ws-obstacle-summary-line";
+    const key = document.createElement("b");
+    key.textContent = `${label}：`;
+    line.append(key, document.createTextNode(value));
+    root.append(line);
+  }
+  return root;
 }
 
 export type ScenePlanView = {
@@ -39,6 +67,7 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
   const selected = obstacles.find(o => o.id === state.selectedObstacleId);
   const [scale, setScale] = useState("");
   const fittedBounds = useRef<ObstacleBounds | null>(null);
+  const obstacleLayers = useRef(new Map<string, { box: L.Rectangle; marker: HTMLElement }>());
 
   // Camera padding keeps targets clear of the floating inspector and map controls.
   function cameraPadding(): L.FitBoundsOptions {
@@ -214,26 +243,50 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
   }, [detailOpen]);
   useEffect(() => {
     const instance = map.current;
-    if (!instance || !valid || !showObstacles) return;
+    if (!instance || !valid || !showObstacles || !result) return;
     const group = L.layerGroup().addTo(instance);
-    for (const o of result?.obstacles ?? []) {
+    for (const [index, o] of result.obstacles.entries()) {
       const box = obstacleBounds(o, vertical);
       if (!box) continue;
-      const active = o.id === state.selectedObstacleId;
-      const color = active ? "#f4d396" : "#c9a773";
-      const boxLayer = L.rectangle(leafletBounds(box), { color, weight: active ? 2.5 : 1.5, fillColor: "#c4a267", fillOpacity: active ? 0.28 : 0.12, dashArray: active ? undefined : "6 5" }).addTo(group);
+      const boxLayer = L.rectangle(leafletBounds(box), { color: "#c9a773", weight: 1.5, fillColor: "#c4a267", fillOpacity: 0.12, dashArray: "6 5" }).addTo(group);
+      boxLayer.getElement()?.setAttribute("data-scene-box", o.id);
       if (!planView) boxLayer.on("click", () => select.current(o.id));
-      boxLayer.bindTooltip(tooltip(`${o.id} · ${o.position.map(sceneNumber).join(" / ")} m`), { className: "ws-scene-tooltip" });
+      const summary = obstacleSummaryText(o, result);
+      boxLayer.bindTooltip(obstacleSummary(o, result), { className: "ws-scene-tooltip" });
       const el = document.createElement(planView ? "span" : "button");
       if (el instanceof HTMLButtonElement) el.type = "button";
-      el.className = `ws-scene-marker ${active ? "is-selected" : ""}`;
-      el.dataset.sceneObstacle = o.id; el.textContent = String((result?.obstacles.indexOf(o) ?? 0) + 1).padStart(2, "0");
-      el.setAttribute("aria-label", `${planView ? "障碍" : "查看障碍"} ${o.id}`); if (!planView) el.setAttribute("aria-pressed", String(active));
+      el.className = "ws-scene-marker";
+      el.dataset.sceneObstacle = o.id; el.textContent = String(index + 1).padStart(2, "0");
+      el.setAttribute("aria-label", summary); el.title = summary;
+      if (!planView) el.setAttribute("aria-pressed", "false");
       if (!planView) { L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => select.current(o.id)); }
-      L.marker([o.position[vertical], o.position[0]], { keyboard: false, icon: L.divIcon({ className: "ws-scene-marker-host", html: el, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(group);
+      const marker = L.marker([o.position[vertical], o.position[0]], { keyboard: false, icon: L.divIcon({ className: "ws-scene-marker-host", html: el, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(group);
+      marker.bindTooltip(obstacleSummary(o, result), { className: "ws-scene-tooltip" });
+      if (!planView) {
+        el.addEventListener("focus", () => marker.openTooltip());
+        el.addEventListener("blur", () => marker.closeTooltip());
+      }
+      obstacleLayers.current.set(o.id, { box: boxLayer, marker: el });
     }
-    return () => { group.remove(); };
-  }, [result, state.selectedObstacleId, vertical, valid, showObstacles, Boolean(planView)]);
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      group.eachLayer(layer => layer.closeTooltip());
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      obstacleLayers.current.clear(); group.remove();
+    };
+  }, [result, vertical, valid, showObstacles, Boolean(planView)]);
+  // Selection changes styles only, so focus and the inspector opener retain their DOM node.
+  useEffect(() => {
+    obstacleLayers.current.forEach(({ box, marker }, id) => {
+      const active = id === state.selectedObstacleId;
+      box.setStyle({ color: active ? "#f4d396" : "#c9a773", weight: active ? 2.5 : 1.5, fillOpacity: active ? 0.28 : 0.12, dashArray: active ? "" : "6 5" });
+      marker.classList.toggle("is-selected", active);
+      if (!planView) marker.setAttribute("aria-pressed", String(active));
+    });
+  }, [state.selectedObstacleId, result, vertical, valid, showObstacles, Boolean(planView)]);
 
   function fit(all: boolean) {
     const next = (all ? planBounds() : null) ?? sceneBounds(!all && selected ? [selected] : obstacles, vertical);

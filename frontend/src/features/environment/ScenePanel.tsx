@@ -61,9 +61,9 @@ export function ScenePanel({ input, state, onChange, onSelect, onShowMap, storag
 
 export function ObstacleDetails({ obstacle: o, result, campus = false }: { obstacle: Obstacle; result: ObstacleDetectionResult; campus?: boolean }) {
   return <div className="ws-obstacle-details"><p className="ws-muted">{sceneSourceNames[result.source]} · {campus ? "模拟配准场景" : "检测结果"}</p>
-    <dl className="ws-object-fields"><div><dt>类型</dt><dd>{o.obstacle_type === "unknown" ? "未识别" : o.obstacle_type}</dd></div><div><dt>启发式置信度</dt><dd>{sceneNumber(o.confidence)}</dd></div></dl>
+    <dl className="ws-object-fields"><div><dt>类型</dt><dd>{o.obstacle_type === "unknown" ? "未识别" : o.obstacle_type}</dd></div><div><dt>启发式置信度</dt><dd>{sceneNumber(o.confidence)} <small>未校准</small></dd></div></dl>
     <h3>中心位置 / m</h3><dl className="ws-scene-vector">{o.position.map((value, i) => <div key={i}><dt>{"XYZ"[i]}</dt><dd>{sceneNumber(value)}</dd></div>)}</dl>
     <h3>包围盒尺寸 / m</h3><dl className="ws-scene-vector">{o.size.map((value, i) => <div key={i}><dt>{["X 宽度", "Y 深度", "Z 高度"][i]}</dt><dd>{sceneNumber(value)}</dd></div>)}</dl>
-    <p className="ws-inspector-note">Z 相对于点云坐标原点，不是海拔或离地高度。包围盒是几何范围，未识别具体物体。</p><p className="ws-muted">置信度为未经真实传感器校准的启发式分数，不是安全概率。检测结果不构成飞行批准。</p>
+    <p className="ws-inspector-note">Z 相对于点云坐标原点，不是海拔或离地高度。包围盒仅表示几何范围，类型以检测结果为准。</p><p className="ws-muted">置信度为未经真实传感器校准的启发式分数，不是安全概率。检测结果不构成飞行批准。</p>
   </div>;
 }
