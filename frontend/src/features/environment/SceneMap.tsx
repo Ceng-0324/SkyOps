@@ -67,6 +67,7 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
   const selected = obstacles.find(o => o.id === state.selectedObstacleId);
   const [scale, setScale] = useState("");
   const fittedBounds = useRef<ObstacleBounds | null>(null);
+  const obstacleLayers = useRef(new Map<string, { box: L.Rectangle; marker: HTMLElement }>());
 
   // Camera padding keeps targets clear of the floating inspector and map controls.
   function cameraPadding(): L.FitBoundsOptions {
@@ -244,21 +245,20 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
     const instance = map.current;
     if (!instance || !valid || !showObstacles || !result) return;
     const group = L.layerGroup().addTo(instance);
-    for (const o of result?.obstacles ?? []) {
+    for (const [index, o] of result.obstacles.entries()) {
       const box = obstacleBounds(o, vertical);
       if (!box) continue;
-      const active = o.id === state.selectedObstacleId;
-      const color = active ? "#f4d396" : "#c9a773";
-      const boxLayer = L.rectangle(leafletBounds(box), { color, weight: active ? 2.5 : 1.5, fillColor: "#c4a267", fillOpacity: active ? 0.28 : 0.12, dashArray: active ? undefined : "6 5" }).addTo(group);
+      const boxLayer = L.rectangle(leafletBounds(box), { color: "#c9a773", weight: 1.5, fillColor: "#c4a267", fillOpacity: 0.12, dashArray: "6 5" }).addTo(group);
+      boxLayer.getElement()?.setAttribute("data-scene-box", o.id);
       if (!planView) boxLayer.on("click", () => select.current(o.id));
       const summary = obstacleSummaryText(o, result);
       boxLayer.bindTooltip(obstacleSummary(o, result), { className: "ws-scene-tooltip" });
       const el = document.createElement(planView ? "span" : "button");
       if (el instanceof HTMLButtonElement) el.type = "button";
-      el.className = `ws-scene-marker ${active ? "is-selected" : ""}`;
-      el.dataset.sceneObstacle = o.id; el.textContent = String((result?.obstacles.indexOf(o) ?? 0) + 1).padStart(2, "0");
+      el.className = "ws-scene-marker";
+      el.dataset.sceneObstacle = o.id; el.textContent = String(index + 1).padStart(2, "0");
       el.setAttribute("aria-label", summary); el.title = summary;
-      if (!planView) el.setAttribute("aria-pressed", String(active));
+      if (!planView) el.setAttribute("aria-pressed", "false");
       if (!planView) { L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => select.current(o.id)); }
       const marker = L.marker([o.position[vertical], o.position[0]], { keyboard: false, icon: L.divIcon({ className: "ws-scene-marker-host", html: el, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(group);
       marker.bindTooltip(obstacleSummary(o, result), { className: "ws-scene-tooltip" });
@@ -266,9 +266,27 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
         el.addEventListener("focus", () => marker.openTooltip());
         el.addEventListener("blur", () => marker.closeTooltip());
       }
+      obstacleLayers.current.set(o.id, { box: boxLayer, marker: el });
     }
-    return () => { group.remove(); };
-  }, [result, state.selectedObstacleId, vertical, valid, showObstacles, Boolean(planView)]);
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      group.eachLayer(layer => layer.closeTooltip());
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      obstacleLayers.current.clear(); group.remove();
+    };
+  }, [result, vertical, valid, showObstacles, Boolean(planView)]);
+  // Selection changes styles only, so focus and the inspector opener retain their DOM node.
+  useEffect(() => {
+    obstacleLayers.current.forEach(({ box, marker }, id) => {
+      const active = id === state.selectedObstacleId;
+      box.setStyle({ color: active ? "#f4d396" : "#c9a773", weight: active ? 2.5 : 1.5, fillOpacity: active ? 0.28 : 0.12, dashArray: active ? "" : "6 5" });
+      marker.classList.toggle("is-selected", active);
+      if (!planView) marker.setAttribute("aria-pressed", String(active));
+    });
+  }, [state.selectedObstacleId, result, vertical, valid, showObstacles, Boolean(planView)]);
 
   function fit(all: boolean) {
     const next = (all ? planBounds() : null) ?? sceneBounds(!all && selected ? [selected] : obstacles, vertical);

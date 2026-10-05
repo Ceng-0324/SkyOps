@@ -86,10 +86,28 @@ try {
     await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)}); el.value=${JSON.stringify(value)}; el.dispatchEvent(new Event('change',{bubbles:true})); })()`);
     await evaluate("new Promise(r=>requestAnimationFrame(r))");
   };
+  const key = async (key, code, windowsVirtualKeyCode) => {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode, text: key === 'Enter' ? '\r' : key === ' ' ? ' ' : undefined });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode });
+    await evaluate("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
+  };
+  const hover = async selector => {
+    const point = await evaluate(`(() => { const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2, y:r.y+1}; })()`);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+    await wait("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary')");
+  };
   await button('场景');
   assert.equal(await evaluate("document.querySelector('#scene-dataset').value"),'campus');
   await wait("document.querySelector('.ws-scene-imagery')?.complete");
   await button('开始检测'); await wait("document.querySelectorAll('[data-obstacle-row]').length===3");
+  await hover('[data-scene-box="obs_1"]');
+  const boxSummary = await evaluate("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary').textContent");
+  for (const field of ['obs_1', '未识别', '中心 XYZ / m', '尺寸 XYZ / m', 'Mock', '局部米制坐标']) assert.ok(boxSummary.includes(field), field);
+  await hover('[data-scene-obstacle="obs_1"]');
+  assert.equal(await evaluate("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary').textContent"), boxSummary);
+  await key('Escape', 'Escape', 27);
+  await wait("!document.querySelector('.ws-scene-tooltip')");
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
   await click('[data-obstacle-row="obs_1"]');
   assert.ok(await evaluate("document.querySelector('.ws-obstacle-details').textContent.includes('模拟配准')"));
   await shot('scene-mock-overlay');
@@ -157,11 +175,29 @@ try {
   assert.ok(markerSummary.label.includes('尺寸 XYZ'));
   assert.ok(markerSummary.label.includes('局部米制单位'));
   assert.equal(markerSummary.title, markerSummary.label);
-  await evaluate("(() => { const el=document.querySelector('[data-scene-obstacle=obs_0]'); el.focus(); el.dispatchEvent(new FocusEvent('focus')); })()");
+  assert.ok(markerSummary.label.includes('0.045 / 0 / 2 m'));
+  assert.ok(markerSummary.label.includes('0.09 / 0 / 0 m'));
+  assert.ok(markerSummary.label.includes('Mock'));
+  assert.ok(await evaluate("document.querySelector('.ws-obstacle-details').textContent.includes('未校准')"));
+  await evaluate("document.querySelector('[data-scene-obstacle=obs_0]').focus()");
   await wait("document.querySelector('.leaflet-tooltip .ws-obstacle-summary')");
   assert.equal(await evaluate("document.querySelector('.leaflet-tooltip .ws-obstacle-summary').textContent.includes('尺寸 XYZ')"),true);
   await evaluate("document.querySelector('[data-scene-obstacle=obs_0]').blur()");
   await wait("!document.querySelector('.leaflet-tooltip .ws-obstacle-summary')");
+  await click('button[aria-label="关闭详情"]');
+  for (const [value, code, virtualKey] of [['Enter', 'Enter', 13], [' ', 'Space', 32]]) {
+    await evaluate("window.__obstacleOpener=document.querySelector('[data-scene-obstacle=obs_0]'); window.__obstacleOpener.focus()");
+    await wait("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary')");
+    await key('Escape', 'Escape', 27);
+    await wait("!document.querySelector('.ws-scene-tooltip')");
+    assert.ok(await evaluate("document.activeElement===window.__obstacleOpener"));
+    await key(value, code, virtualKey);
+    await wait("document.querySelector('.ws-obstacle-details')");
+    assert.ok(await evaluate("window.__obstacleOpener===document.querySelector('[data-scene-obstacle=obs_0]') && window.__obstacleOpener.getAttribute('aria-pressed')==='true'"));
+    await click('button[aria-label="关闭详情"]');
+    await wait("document.activeElement===window.__obstacleOpener");
+  }
+  await click('[data-obstacle-row="obs_0"]');
   const allMarkersVisible = async () => {
     await wait("[...document.querySelectorAll('[data-scene-obstacle]')].every(el=>{const r=el.getBoundingClientRect(),b=document.querySelector('.ws-scene-canvas').getBoundingClientRect();return r.left>=b.left && r.right<=b.right && r.top>=b.top && r.bottom<=b.bottom})");
   };
@@ -246,8 +282,36 @@ try {
   await wait("document.querySelector('.ws-header h1').textContent==='F02 隔离任务'"); await button('场景');
   assert.equal(await evaluate("document.querySelectorAll('[data-obstacle-row]').length"),0);
   assert.equal(await evaluate("document.querySelector('#scene-tolerance').value"),'2');
+  // Valid server strings must remain literal text in both Leaflet content and React details.
+  const specialId = 'obs_<img src=x onerror="window.__obstacleXss=1"> & "编号"';
+  const specialType = '<b>服务端类型 & "测试"</b>';
+  const fixture = structuredClone(expected);
+  fixture.result.source = 'simulated';
+  fixture.result.obstacles = [{ ...fixture.result.obstacles[0], id: specialId, obstacle_type: specialType }];
+  await evaluate(`(() => {
+    const original = window.fetch;
+    window.fetch = (url, options) => {
+      if (String(url).includes('/point-cloud/detect-obstacles')) {
+        window.fetch = original;
+        return Promise.resolve(new Response(JSON.stringify(${JSON.stringify(fixture)}), {status:200, headers:{'Content-Type':'application/json'}}));
+      }
+      return original(url, options);
+    };
+  })()`);
+  await button('开始检测');
+  await wait("document.querySelectorAll('[data-obstacle-row]').length===1");
+  await evaluate("document.querySelector('[data-scene-obstacle]').focus()");
+  await wait("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary')");
+  const literalSummary = await evaluate("document.querySelector('.ws-scene-tooltip .ws-obstacle-summary').textContent");
+  for (const field of [specialId, specialType, 'Simulated']) assert.ok(literalSummary.includes(field));
+  assert.equal(await evaluate("document.querySelectorAll('.ws-scene-tooltip img').length"), 0);
+  assert.equal(await evaluate("document.querySelectorAll('.ws-scene-tooltip .ws-obstacle-summary b').length"), 4);
+  await key('Enter', 'Enter', 13);
+  await wait("document.querySelector('.ws-obstacle-details')");
+  assert.equal(await evaluate("document.querySelector('.ws-obstacle-details dd').textContent"), specialType);
+  assert.equal(await evaluate("Boolean(window.__obstacleXss)"), false);
   assert.deepEqual(page.errors,[]);
-  console.log('F02 browser passed: real detections, empty/error/retry/cancel, settings invalidation/persistence, task isolation, map/list selection, projections, layers, desktop/mobile and reference-image separation.');
+  console.log('F02 browser passed: real detections, empty/error/retry/cancel, settings invalidation/persistence, task isolation, hover summaries, keyboard selection and stable focus, safe server text, projections, layers, desktop/mobile and reference-image separation.');
 } finally {
   page?.close(); await browser.send("Target.disposeBrowserContext", { browserContextId }); browser.close();
 }
