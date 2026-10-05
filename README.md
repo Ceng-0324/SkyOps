@@ -38,7 +38,7 @@
 
 The dark dashboard and Task / Scene / Plan workspace implement the F01–F03 simulation loop: structured task parsing, point-cloud obstacle detection, and candidate route comparison. The integrated image workflow currently uses a paired mock campus and target A; real registration, full multimodal input, and persistent planning results are future work.
 
-Risk, incident and review capabilities remain in an explicitly separate scenario reference tool. This is not completion of the full five-view redesign. See [development status and acceptance gates](docs/DEVELOPMENT_PLAN.md); local verification does not replace PR CI and merge approval.
+The F04 backend now previews wind changes and added tasks against a selected F03 candidate, with rule evidence, dependency impacts and response comparisons. Its workspace UI is pending design confirmation. Existing risk, incident and review screens remain in an explicitly separate scenario reference tool. This is not completion of the full five-view redesign. See [development status and acceptance gates](docs/DEVELOPMENT_PLAN.md); local verification does not replace PR CI and merge approval.
 
 ## Overview
 
@@ -196,6 +196,7 @@ SkyOps is the **autonomous coordination layer** between operational requirements
 - **[docs/evaluation-metrics.md](./docs/evaluation-metrics.md)**: Phase 3 evaluation contracts (legacy reference)
 - **[docs/llm-safety-boundary.md](./docs/llm-safety-boundary.md)**: LLM adapter safety boundary (long-term design principle)
 - **[docs/point-cloud-api.md](./docs/point-cloud-api.md)**: F02 point-cloud API, directory configuration, and error contract
+- **[docs/risk-simulation-api.md](./docs/risk-simulation-api.md)**: F04 candidate risk simulation, event inputs, response comparisons, and limitations
 
 ---
 

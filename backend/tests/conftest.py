@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
 from app.core.models.candidate_planning import CandidatePlanningRequest
+from app.core.models.risk_simulation import RiskSimulationRequest, TaskAddedEvent
 from app.main import app
 
 
@@ -80,5 +81,44 @@ def candidate_request() -> CandidatePlanningRequest:
                     "algorithm": "synthetic_mock",
                 },
             },
+        }
+    )
+
+
+@pytest.fixture
+def simulation_request(candidate_request: CandidatePlanningRequest) -> RiskSimulationRequest:
+    """以 F03 的实际输入预演已知风速，不注入伪造的可行路径。"""
+    return RiskSimulationRequest.model_validate(
+        {
+            "planning_request": candidate_request.model_dump(),
+            "selected_strategy": "coverage",
+            "event": {
+                "id": "wind-1",
+                "type": "wind_change",
+                "source": "simulated",
+                "timestamp": "2026-10-05T12:00:00Z",
+                "wind_speed_mps": 7.2,
+            },
+        }
+    )
+
+
+@pytest.fixture
+def task_added_event() -> TaskAddedEvent:
+    """在 a 前插入新任务；a 的后继 c 应受影响，独立任务 b 不产生依赖。"""
+    return TaskAddedEvent.model_validate(
+        {
+            "id": "task-1",
+            "type": "task_added",
+            "source": "mock",
+            "timestamp": "2026-10-05T12:00:00Z",
+            "task": {
+                "id": "new",
+                "action": "capture",
+                "target": {"kind": "object", "label": "D", "refs": ["D"]},
+                "completion_conditions": ["取得影像"],
+            },
+            "geometry": [{"ref": "D", "observation_points": [[6, 6, 1]]}],
+            "before_task_ids": ["a"],
         }
     )
