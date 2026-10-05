@@ -44,6 +44,10 @@
 .ws-scene-map .ws-scene-marker { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #c8ae7d; border-radius: 50%; background: #34322a; color: #f0d7a5; font-size: 11px; font-variant-numeric: tabular-nums; }
 .ws-scene-map .ws-scene-marker:hover, .ws-scene-map .ws-scene-marker.is-selected { background: #695536; border-color: #ffe0a5; color: #fff1d4; }
 .ws-scene-map .ws-scene-tooltip { background: #263442; color: #e6eaf0; border: 1px solid #8394a5; box-shadow: 0 5px 12px #08111d55; max-width: 250px; white-space: normal; overflow-wrap: anywhere; }
+.ws-scene-map .ws-obstacle-summary { display: grid; gap: 5px; min-width: 205px; line-height: 1.4; }
+.ws-scene-map .ws-obstacle-summary strong { color: #c6f1f4; font-size: 11px; font-weight: 600; }
+.ws-scene-map .ws-obstacle-summary-line { display: block; color: #e6eaf0; font-size: 10px; }
+.ws-scene-map .ws-obstacle-summary-line b { color: #aec1d1; font-weight: 500; }
 .ws-scene-map .leaflet-control-container { display: none; }
 @media(max-width:1000px) and (min-width:761px) {
   .ws-scene-map.has-detail { right: 0 !important; }

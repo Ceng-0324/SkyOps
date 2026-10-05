@@ -150,6 +150,18 @@ try {
   await wait("document.querySelector('.ws-obstacle-details')");
   assert.equal(await evaluate("document.querySelectorAll('.ws-scene-vector')[0].textContent.includes('0.045')"),true);
   assert.equal(await evaluate("document.querySelector('[data-scene-obstacle=obs_0]').getAttribute('aria-pressed')"),'true');
+  const markerSummary = await evaluate("(() => { const el=document.querySelector('[data-scene-obstacle=obs_0]'); return { label: el?.getAttribute('aria-label') ?? '', title: el?.getAttribute('title') ?? '' }; })()");
+  assert.ok(markerSummary.label.includes('编号：obs_0'));
+  assert.ok(markerSummary.label.includes('类型：未识别'));
+  assert.ok(markerSummary.label.includes('中心 XYZ'));
+  assert.ok(markerSummary.label.includes('尺寸 XYZ'));
+  assert.ok(markerSummary.label.includes('局部米制单位'));
+  assert.equal(markerSummary.title, markerSummary.label);
+  await evaluate("(() => { const el=document.querySelector('[data-scene-obstacle=obs_0]'); el.focus(); el.dispatchEvent(new FocusEvent('focus')); })()");
+  await wait("document.querySelector('.leaflet-tooltip .ws-obstacle-summary')");
+  assert.equal(await evaluate("document.querySelector('.leaflet-tooltip .ws-obstacle-summary').textContent.includes('尺寸 XYZ')"),true);
+  await evaluate("document.querySelector('[data-scene-obstacle=obs_0]').blur()");
+  await wait("!document.querySelector('.leaflet-tooltip .ws-obstacle-summary')");
   const allMarkersVisible = async () => {
     await wait("[...document.querySelectorAll('[data-scene-obstacle]')].every(el=>{const r=el.getBoundingClientRect(),b=document.querySelector('.ws-scene-canvas').getBoundingClientRect();return r.left>=b.left && r.right<=b.right && r.top>=b.top && r.bottom<=b.bottom})");
   };
