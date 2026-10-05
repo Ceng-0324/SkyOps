@@ -108,6 +108,13 @@ def build_mission_planning_result(
 def plan_mission_candidates(request: CandidatePlanningRequest) -> CandidatePlanningResult:
     """生成基于输入几何的仿真候选，保留规则证据、澄清和各策略失败原因。"""
     scenario = load_mission_scenario(request.scenario_id)
+    return build_candidate_planning_result(request, scenario)
+
+
+def build_candidate_planning_result(
+    request: CandidatePlanningRequest, scenario: dict[str, Any]
+) -> CandidatePlanningResult:
+    """基于同一参考数据快照计算候选，供 F03 入口和 F04 前后对比共用。"""
     tree = parse_task_input(request.raw_user_input)
     # 即使随后被硬约束阻止，也不把非法依赖变成合法任务草稿。
     describe_dependencies(tree)
