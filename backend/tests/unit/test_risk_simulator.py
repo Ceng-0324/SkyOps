@@ -1,5 +1,6 @@
 """F04 验证真实候选、规则边界、依赖影响与保守失败语义。"""
 
+import json
 from copy import deepcopy
 
 import pytest
@@ -208,6 +209,40 @@ def test_projected_budget_failure_is_not_an_empty_success(
     assert result.alternatives[2].status == "budget_exceeded"
     assert result.alternatives[2].projected_plan is None
     assert result.recommended_response == "pause_for_review"
+
+
+@pytest.mark.parametrize("constraint", ["altitude", "endurance", "task_limit"])
+def test_new_work_cannot_bypass_f03_constraints(
+    simulation_request: RiskSimulationRequest,
+    task_added_event: TaskAddedEvent,
+    monkeypatch: pytest.MonkeyPatch,
+    constraint: str,
+) -> None:
+    planning = simulation_request.planning_request
+    planning.completed_task_ids = []
+    simulation_request.event = task_added_event
+    scenario = deepcopy(load_mission_scenario(planning.scenario_id))
+    if constraint == "altitude":
+        planning.scene.altitude_origin_m = 118
+        task_added_event.geometry[0].observation_points = [(6, 6, 3)]
+        expected = "blocked"
+    elif constraint == "endurance":
+        scenario["drone_state"]["estimated_endurance_minutes"] = 1
+        task_added_event.geometry[0].observation_points = [(6 + i / 10, 6, 1) for i in range(16)]
+        expected = "infeasible"
+    else:
+        node = json.loads(planning.raw_user_input)["nodes"][0]
+        planning.raw_user_input = json.dumps({"nodes": [node | {"id": f"t{i}"} for i in range(32)]})
+        planning.priority_task_ids = []
+        task_added_event.before_task_ids = []
+        expected = "requires_review"
+    monkeypatch.setattr(simulator, "load_mission_scenario", lambda _: scenario)
+    result = simulate_scenario(simulation_request)
+    assert result.baseline.status == "candidates"
+    assert result.recommended_response == "pause_for_review"
+    assert result.alternatives[2].status == expected
+    assert result.alternatives[2].projected_plan is None
+    assert result.alternatives[2].distance_delta_m is None
 
 
 @pytest.mark.parametrize("change", ["clarification", "no_remaining", "unavailable", "blocked"])

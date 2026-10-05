@@ -9,13 +9,32 @@ from app.api.schemas import (
     MissionReviewResponse,
 )
 from app.core.models.candidate_planning import CandidatePlanningRequest, CandidatePlanningResult
+from app.core.models.risk_simulation import RiskSimulationRequest, RiskSimulationResult
 from app.core.orchestration import plan_mission, replan_mission, review_mission
 from app.core.orchestration.mission_planner import plan_mission_candidates
+from app.core.risk.simulator import RiskSimulationInputError, simulate_scenario
 from app.core.task_decomposition.dependency import TaskDependencyError
 from app.core.task_decomposition.parser import TaskInputError
 from app.data.scenarios import ScenarioNotFoundError
 
 router = APIRouter(prefix="/missions", tags=["missions"])
+
+
+@router.post(
+    "/simulate-risk",
+    responses={
+        404: {"description": "Mission scenario not found"},
+        422: {"description": "Invalid planning input, event or task dependency change"},
+    },
+)
+def create_risk_simulation(request: RiskSimulationRequest) -> RiskSimulationResult:
+    """基于所选 F03 候选预演事件影响与响应后果，不下发执行指令。"""
+    try:
+        return simulate_scenario(request)
+    except ScenarioNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (TaskInputError, TaskDependencyError, RiskSimulationInputError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(
