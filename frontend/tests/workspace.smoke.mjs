@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createWorkspace, createCandidates, DEFAULT_INCIDENT_EVENT } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
+import { createWorkspace, createCandidates, simulateRisk, DEFAULT_INCIDENT_EVENT } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
 
 test("real F01 → F02 → F03 → F04 supports task dependencies, route selection, invalidation and reference views", async () => {
   const w = createWorkspace();
@@ -33,6 +33,45 @@ test("real F01 → F02 → F03 → F04 supports task dependencies, route selecti
     w.store.getState().setRiskInput({ wind: "", unknown: true });
     await w.store.getState().simulateRisk();
     assert.equal(w.store.getState().risk.data.status, "needs_clarification");
+    const originalSnapshot = structuredClone(w.store.getState().planning.data);
+    const originalRequest = structuredClone(w.store.getState().planningRequest);
+    w.store.getState().setRiskEventType('task_added');
+    const setAdded = change => w.store.getState().setTaskRiskInput({ ...w.store.getState().taskRiskInput, ...change });
+    setAdded({ targetRef: 'A', completion: '取得细节影像', after: [task.definition.nodes[0].id] });
+    await w.store.getState().simulateRisk();
+    assert.equal(w.store.getState().risk.status, 'success', w.store.getState().risk.error);
+    let risk = w.store.getState().risk.data;
+    assert.equal(risk.recommended_response, 'replan');
+    assert.equal(risk.projected.task_tree.definition.nodes.length, 4);
+    assert.equal(risk.event.geometry.length, 0);
+    assert.deepEqual(w.store.getState().planning.data, originalSnapshot);
+    assert.deepEqual(w.store.getState().planningRequest, originalRequest);
+    setAdded({ targetMode: 'new', newTarget: 'D', points: [['6','6','2']], after: [], before: [task.definition.nodes[0].id] });
+    await w.store.getState().simulateRisk();
+    assert.equal(w.store.getState().risk.status, 'success', w.store.getState().risk.error);
+    risk = w.store.getState().risk.data;
+    assert.equal(risk.recommended_response, 'replan');
+    assert.ok(risk.impact.dependent_task_ids.includes(task.definition.nodes[0].id));
+    assert.equal(risk.projected.scene.targets.at(-1).ref, 'D');
+    assert.deepEqual(w.store.getState().planningRequest, originalRequest);
+    // Completion credits differ across strategies; only supplementary capture skips them.
+    const creditedRequest = { ...originalRequest, completed_task_ids: [task.definition.nodes[0].id] };
+    const credited = await createCandidates(creditedRequest);
+    const creditedRisk = await simulateRisk({ planning_request: creditedRequest, selected_strategy: 'focused_observation',
+      event: { ...risk.event, before_task_ids: [], task: { ...risk.event.task, depends_on: [] } } }, credited);
+    assert.equal(creditedRisk.recommended_response, 'replan');
+    // Missing geometry is a valid clarification result, not a malformed response.
+    const missing = await simulateRisk({ planning_request: originalRequest, selected_strategy: 'focused_observation',
+      event: { ...risk.event, geometry: [], before_task_ids: [], task: { ...risk.event.task, depends_on: [] } } }, originalSnapshot);
+    assert.equal(missing.status, 'needs_clarification');
+    assert.equal(missing.projected.effective_bounds, null);
+    assert.equal(missing.alternatives.find(a => a.strategy === 'replan').projected_plan, null);
+    // A target inside a detected obstacle produces a genuine infeasible alternative.
+    const obstacle = w.environment.getState().result.obstacles[0];
+    const infeasible = await simulateRisk({ planning_request: originalRequest, selected_strategy: 'focused_observation',
+      event: { ...risk.event, geometry: [{ ref: 'D', observation_points: [obstacle.position] }], before_task_ids: [], task: { ...risk.event.task, depends_on: [] } } }, originalSnapshot);
+    assert.equal(infeasible.recommended_response, 'pause_for_review');
+    assert.equal(infeasible.alternatives.find(a => a.strategy === 'replan').projected_plan, null);
     await w.store.getState().loadReference(DEFAULT_INCIDENT_EVENT);
     assert.equal(w.store.getState().reference.status, "ready");
     const blocked = await createCandidates({ raw_user_input: task.raw_input, scenario_id: data.scenario_id,

@@ -1,3 +1,4 @@
+import { isTaskRisk } from "../../api/riskSimulation";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { ArrowLeft, ArrowRight, Building2, ChevronRight, FileText, Folders, GitBranch, Layers, LayoutDashboard, LoaderCircle, MapPin, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Route, ShieldAlert, Wind, Trash2, X } from "lucide-react";
@@ -46,10 +47,15 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   const [comparedStrategy, setComparedStrategy] = useState<Strategy | null>(null);
   const adoptedStrategy = useStore(workspace.store, state => state.adoptedStrategy);
   const risk = useStore(workspace.store, state => state.risk);
+  const riskEventType = useStore(workspace.store, state => state.riskEventType);
   const adoptedPlan = planning.data?.candidates.find(p => p.strategy === adoptedStrategy);
   const [riskRegion, setRiskRegion] = useState<"event" | "map" | "result">("event");
   const [riskLeftWidth, setRiskLeftWidth] = useState(320);
   const [riskRightWidth, setRiskRightWidth] = useState(324);
+  const [showRiskOriginal, setShowRiskOriginal] = useState(true);
+  const [showRiskProjected, setShowRiskProjected] = useState(true);
+  const taskRisk = risk.data && isTaskRisk(risk.data) ? risk.data : null;
+  const projectedPlan = taskRisk?.alternatives.find(a => a.strategy === "replan")?.projected_plan ?? undefined;
   const [riskVisit, setRiskVisit] = useState<number | null>(null);
   const riskFocus = useRef<number | "result" | null>(null);
   const [planDetailsOpen, setPlanDetailsOpen] = useState(false);
@@ -136,6 +142,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
   const riskRight = Math.min(riskRightWidth, riskRightMaximum);
   function selectRiskRegion(region: "event" | "map" | "result") { setRiskRegion(region); }
   function selectRiskVisit(index: number) {
+    setShowRiskProjected(true);
     riskFocus.current = index;
     setRiskVisit(index); setRiskRegion("map");
   }
@@ -154,11 +161,16 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
     });
     return () => cancelAnimationFrame(frame);
   }, [riskRegion, riskVisit, risk.status]);
-  const riskView = useMemo(() => ({ geometry: planning.data?.scene ?? null, primary: adoptedPlan,
-    comparison: undefined, visitIndex: riskVisit, onVisit: selectRiskVisit,
+  const riskView = useMemo(() => ({ geometry: taskRisk?.projected.scene ?? planning.data?.scene ?? null,
+    primary: projectedPlan ?? adoptedPlan,
+    comparison: projectedPlan ? adoptedPlan : undefined, visitIndex: riskVisit, onVisit: selectRiskVisit,
     affectedTaskIds: risk.data?.impact.direct_task_ids ?? [],
-  }), [planning.data, adoptedPlan, riskVisit, risk.data]);
-  useEffect(() => { setRiskVisit(null); }, [risk.data, adoptedStrategy]);
+    affectedLabel: taskRisk ? "新增任务观察访问" : "受风速假设影响",
+    comparisonColor: taskRisk ? "#c9d3dc" : undefined,
+    showPrimary: !projectedPlan || showRiskProjected, showComparison: showRiskOriginal,
+    caption: taskRisk ? projectedPlan ? "青色：预演方案 · 灰虚线：原草案 · 琥珀外圈：新增任务 · +：重复访问" : "青色：原草案 · 未生成可用预演路线 · S：起止点" : undefined,
+  }), [planning.data, adoptedPlan, projectedPlan, taskRisk, riskVisit, risk.data, showRiskOriginal, showRiskProjected]);
+  useEffect(() => { setRiskVisit(null); setShowRiskOriginal(true); setShowRiskProjected(true); }, [risk.data, adoptedStrategy]);
 
   function update(next: SpatialTaskDraft, input = rawInput) {
     invalidateGeometry();
@@ -209,13 +221,13 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
     <style>{`@media(min-width:761px){.ws-shell{grid-template-columns:68px ${collapsed ? 0 : leftWidth}px minmax(0,1fr)}.ws-shell .ws-inspector{width:${rightWidth}px}.ws-scene-map.has-detail{right:${rightWidth + 90}px}}`}</style>
     {section === "risk" && <style>{`@media(min-width:1101px){.ws-shell.ws-risk-shell{grid-template-columns:68px ${riskLeft}px minmax(0,1fr)}.ws-risk-results{width:${riskRight}px}}`}</style>}
     {reference ? <div className="ws-reference"><header><button className="ws-button" onClick={() => setReference(false)}><ArrowLeft size={16} />返回任务编辑</button><p>独立场景参考工具 · 此处示例坐标与当前影像点位未关联</p></header><Suspense fallback={<p className="ws-loading">加载参考工具…</p>}><ReferenceConsole initialTaskInput={rawInput} /></Suspense></div>
-      : <div className={`ws-shell ${section === "risk" ? "ws-risk-shell" : collapsed ? "ws-collapsed" : ""}`} data-risk-region={riskRegion}>
+      : <div className={`ws-shell ${section === "risk" ? "ws-risk-shell" : collapsed ? "ws-collapsed" : ""}`} data-risk-region={riskRegion} data-risk-event={riskEventType}>
         <aside className="ws-rail"><Layers size={28} /><nav aria-label="工作区导航"><button aria-label="返回总览工作台" onClick={onBack}><LayoutDashboard size={19} /></button><button aria-label="当前任务" aria-current="page" onClick={() => changeSection("task")}><Folders size={19} /></button></nav><span className="ws-rail-source">SIM</span></aside>
         <header className="ws-header"><button className="ws-icon" onClick={onBack} aria-label="返回工作台"><ArrowLeft size={18} /></button><span className="ws-header-project">个人工作区</span><h1 ref={heading} tabIndex={-1}>{draft.name}</h1><span className="ws-draft-tag">草稿</span><span className="ws-header-source">模拟作业</span><button hidden={section === "risk"} className="ws-collapse" aria-label={collapsed ? "展开任务面板" : "收起任务面板"} aria-expanded={!collapsed} aria-controls="ws-task-panel" onClick={() => { setCollapsed(!collapsed); if (narrow || (section !== "task" && collapsed && viewport - 68 - leftWidth - rightWidth - 90 < 300)) { setSelected(null); environment.selectObstacle(null); setPlanDetailsOpen(false); } }}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span>{collapsed ? "展开任务面板" : "收起任务面板"}</span></button></header>
         {section === "risk" && <nav className="ws-risk-mobile-nav" aria-label="风险页区域">{([['event', '事件设置'], ['map', '空间影响'], ['result', '预演结果']] as const).map(([key, label]) => <button key={key} aria-pressed={riskRegion === key} onClick={() => selectRiskRegion(key)}>{label}</button>)}<button onClick={() => changeSection("plan")}>返回方案</button></nav>}
         <aside className="ws-task-panel" id="ws-task-panel" inert={section === "risk" ? riskCompact && riskRegion !== "event" : collapsed}>
           <nav className="ws-tabs" aria-label="任务准备阶段"><button aria-current={section === "task" ? "page" : undefined} onClick={() => changeSection("task")}><FileText size={15} />任务</button><button aria-current={section === "scene" ? "page" : undefined} onClick={() => changeSection("scene")}><Layers size={15} />场景</button><button aria-current={section === "plan" ? "page" : undefined} onClick={() => changeSection("plan")}><Route size={15} />方案</button><button aria-current={section === "risk" ? "page" : undefined} onClick={() => changeSection("risk")}><ShieldAlert size={15} />风险</button></nav>
-          {section === "risk" ? <RiskInputPanel workspace={workspace} plan={adoptedPlan} onPrepare={() => changeSection("plan")} onResult={showRiskResult} onVisit={selectRiskVisit} /> : section === "plan" ? <SpatialPlanPanel workspace={workspace} reasons={planningReasons} settings={planningSettings} onSettings={updatePlanningSettings} selected={viewedPlan} adopted={adoptedStrategy} onSelect={inspectPlan} onAdopt={() => { if (viewedPlan?.status === "feasible") workspace.store.getState().adoptStrategy(viewedPlan.strategy); }} onGenerate={generatePlans} onPrepare={changeSection} /> : section === "scene" ? <ScenePanel input={sceneInput} state={environment} onChange={updateScene} onSelect={selectObstacle} onShowMap={() => { setCollapsed(true); requestAnimationFrame(() => document.querySelector<HTMLElement>(".ws-scene-canvas")?.focus()); }} storageError={storageError} /> : <>
+          {section === "risk" ? <RiskInputPanel workspace={workspace} plan={adoptedPlan} onPrepare={() => changeSection("plan")} onResult={showRiskResult} onVisit={index => { if (projectedPlan) { const visit = adoptedPlan?.visits[index - 1]; const mapped = projectedPlan.visits.findIndex(v => v.task_id === visit?.task_id && v.sample_index === visit?.sample_index && v.target_ref === visit?.target_ref); if (mapped >= 0) selectRiskVisit(mapped + 1); } else selectRiskVisit(index); }} /> : section === "plan" ? <SpatialPlanPanel workspace={workspace} reasons={planningReasons} settings={planningSettings} onSettings={updatePlanningSettings} selected={viewedPlan} adopted={adoptedStrategy} onSelect={inspectPlan} onAdopt={() => { if (viewedPlan?.status === "feasible") workspace.store.getState().adoptStrategy(viewedPlan.strategy); }} onGenerate={generatePlans} onPrepare={changeSection} /> : section === "scene" ? <ScenePanel input={sceneInput} state={environment} onChange={updateScene} onSelect={selectObstacle} onShowMap={() => { setCollapsed(true); requestAnimationFrame(() => document.querySelector<HTMLElement>(".ws-scene-canvas")?.focus()); }} storageError={storageError} /> : <>
           <div className="ws-panel-scroll">
             {storageError && <p className="ws-error" role="alert">{storageError}</p>}
             <section className="ws-section"><div className="ws-section-heading"><h2>任务内容</h2><button onClick={() => setEditing(!editing)} className="ws-text-button"><Pencil size={13} />{editing ? "完成编辑" : "编辑"}</button></div>
@@ -251,7 +263,7 @@ export function SpatialTaskWorkspace({ draft, storageError, onChange, onBack, vi
           <div className="ws-reference-map" hidden={section !== "task"}><ReferenceImageMap spatial={spatial} selected={selected} mode={mode} onSelect={select} onFinish={() => setMode(null)}
             onPlace={(kind, x, y) => { const next = addMapPoint(spatial, kind, x, y); update(next); if (kind === "start" || next.points.length >= 16) setMode(null); }}
             onMove={(id, patch) => update(moveMapPoint(spatial, id, patch))} /></div>
-          {section === "risk" && <div className="ws-risk-stage"><div className="ws-risk-map" hidden={riskCompact && riskRegion !== "map"}><SceneMap campus={campus} state={environment} onSelect={() => {}} detailOpen={false} planView={riskView} planToolbar={<><div className="ws-plan-map-toolbar"><Route size={17} /><strong>{adoptedPlan ? `当前草案 · ${strategyNames[adoptedPlan.strategy]}` : "尚未选择当前草案"}</strong></div>{risk.data && <div className="ws-risk-map-alert"><Wind size={17} /><div><strong>{riskHeading(risk.data)}</strong><p>{risk.data.impact.direct_task_ids.length} 项任务受影响 · 原路线仅作对照</p></div></div>}</>} />{!adoptedPlan && <div className="ws-risk-map-empty">请先选择当前草案</div>}</div><aside className="ws-risk-results" id="ws-risk-results" tabIndex={-1} aria-label="风险预演结果" hidden={riskCompact && riskRegion !== "result"}><RiskResults workspace={workspace} plan={adoptedPlan} onPrepare={() => changeSection("plan")} /><WorkspaceResizer label="调整预演结果宽度" controls="ws-risk-results" minimum={290} maximum={riskRightMaximum} value={riskRight} defaultValue={324} direction={-1} onChange={setRiskRightWidth} /></aside></div>}
+          {section === "risk" && <div className="ws-risk-stage"><div className="ws-risk-map" hidden={riskCompact && riskRegion !== "map"}><SceneMap campus={campus} state={environment} onSelect={() => {}} detailOpen={false} planView={riskView} planToolbar={<><div className="ws-plan-map-toolbar"><Route size={17} /><strong>{adoptedPlan ? `当前草案 · ${strategyNames[adoptedPlan.strategy]}` : "尚未选择当前草案"}</strong>{projectedPlan && <div className="ws-risk-route-switch"><label><input type="checkbox" checked={showRiskOriginal} onChange={e => setShowRiskOriginal(e.target.checked)} />原草案</label><label><input type="checkbox" checked={showRiskProjected} onChange={e => setShowRiskProjected(e.target.checked)} />预演方案</label></div>}</div>{risk.data && <div className={`ws-risk-map-alert ${taskRisk ? "is-task-event" : ""}`}>{taskRisk ? <Route size={17} /> : <Wind size={17} />}<div><strong>{riskHeading(risk.data)}</strong><p>{taskRisk ? projectedPlan ? "新旧路线对照 · 预演不替换当前草案" : "未得到可用新路线 · 仅保留原草案" : `${risk.data.impact.direct_task_ids.length} 项任务受影响 · 原路线仅作对照`}</p></div></div>}</>} />{!adoptedPlan && <div className="ws-risk-map-empty">请先选择当前草案</div>}</div><aside className="ws-risk-results" id="ws-risk-results" tabIndex={-1} aria-label="风险预演结果" hidden={riskCompact && riskRegion !== "result"}><RiskResults workspace={workspace} plan={adoptedPlan} onPrepare={() => changeSection("plan")} /><WorkspaceResizer label="调整预演结果宽度" controls="ws-risk-results" minimum={290} maximum={riskRightMaximum} value={riskRight} defaultValue={324} direction={-1} onChange={setRiskRightWidth} /></aside></div>}
           {section !== "task" && section !== "risk" && <SceneMap campus={campus} state={environment} onSelect={id => { if (section === "scene") selectObstacle(id); }} detailOpen={showInspector} planView={section === "plan" ? planView : undefined} planToolbar={section === "plan" ? <div className="ws-plan-map-toolbar">
             <strong>{viewedPlan ? strategyNames[viewedPlan.strategy] : "方案预览"}</strong>
             <label>对照<select aria-label="选择对照方案" className="ws-input" disabled={viewedPlan?.status !== "feasible"} value={comparedStrategy ?? ""} onChange={e => setComparedStrategy((e.target.value || null) as Strategy | null)}><option value="">不叠加对照</option>{planning.data?.candidates.filter(p => p.strategy !== viewedStrategy && p.status === "feasible").map(p => <option key={p.strategy} value={p.strategy}>{strategyNames[p.strategy]}</option>)}</select></label>

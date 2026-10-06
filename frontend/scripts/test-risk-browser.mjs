@@ -182,8 +182,62 @@ try {
   await wait("document.activeElement.id === 'ws-risk-results'");
   await button('事件设置');await click('[data-risk-visit="1"]');
   await wait("document.activeElement.dataset.routeVisit === '1'");
+  // Added-task preview reuses the same adopted draft and exposes actual backend comparisons.
+  await viewport(1440,900);
+  await button('新增任务');
+  assert.equal(await evaluate("document.querySelector('#risk-run').disabled"),true);
+  await input('#risk-completion','取得对象 A 四面的细节影像');
+  await evaluate(`document.querySelector('.ws-risk-order').open=true`);
+  await click('[data-risk-order="after"]');
+  await click('#risk-run');
+  await wait("document.querySelector('.ws-risk-conclusion')?.textContent.includes('建议比较重规划方案')");
+  const added=await evaluate('window.__riskRequest');
+  assert.equal(added.event.type,'task_added');
+  assert.deepEqual(added.event.geometry,[]);
+  assert.deepEqual(added.planning_request,request);
+  assert.equal(added.selected_strategy,adopted);
+  assert.equal(added.event.task.depends_on.length,1);
+  await wait("document.querySelector('[data-route=comparison]') && document.querySelector('[data-route=primary]')");
+  assert.ok(await evaluate("document.querySelector('.ws-risk-delta').textContent.includes('路径距离')"));
+  await evaluate(`document.querySelector('.ws-panel-scroll').scrollTop=0;document.querySelector('.ws-risk-results').scrollTop=0;document.activeElement.blur()`);
+  await shot('task-risk-desktop');
+  await viewport(390,844);await layout();await button('预演结果');await shot('task-risk-mobile-result');
+  await button('事件设置');await shot('task-risk-mobile-event');
+  await button('空间影响');await shot('task-risk-mobile-map');
+  await viewport(1440,900);
+  await click('.ws-risk-route-switch label:nth-child(1) input');
+  assert.equal(await evaluate("document.querySelectorAll('[data-route=comparison]').length"),0);
+  await click('.ws-risk-route-switch label:nth-child(1) input');
+  await click('.ws-risk-route-switch label:nth-child(2) input');
+  assert.equal(await evaluate("document.querySelectorAll('[data-route=primary]').length"),0);
+  await click('.ws-risk-route-switch label:nth-child(2) input');
+  assert.ok(await evaluate("document.querySelectorAll('.is-risk-affected').length>0"));
+  await input('#risk-completion','新的完成条件');
+  assert.equal(await evaluate("document.querySelectorAll('[data-route=comparison]').length"),0);
+  assert.equal(await evaluate("document.querySelectorAll('.is-risk-affected').length"),0);
+  await evaluate(`document.querySelectorAll('.ws-risk-order')[1].open=true`);
+  await click('[data-risk-order="before"]');
+  assert.ok(await evaluate("document.querySelector('#risk-task-error').textContent.includes('循环')"));
+  assert.equal(await evaluate("document.querySelector('#risk-run').disabled"),true);
+  await click('[data-risk-order="before"]');
+  const select=async(selector,value)=>{await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}))})()`);await evaluate('new Promise(r=>requestAnimationFrame(r))')};
+  await select('#risk-target','new');await input('#risk-new-target','D');
+  for(const [axis,value] of [['X','120'],['Y','40'],['Z','0']])await input(`[aria-label="观察点 1 ${axis}"]`,value);
+  await input('[aria-label="观察点 1 X"]','9999');
+  assert.ok(await evaluate("document.querySelector('#risk-task-error').textContent.includes('超出')"));
+  await input('[aria-label="观察点 1 X"]','120');await click('#risk-run');
+  await wait("document.querySelector('.ws-risk-conclusion')?.textContent.includes('建议比较重规划方案')");
+  assert.deepEqual(await evaluate('window.__riskRequest.event.geometry'),[{ref:'D',observation_points:[[120,40,0]]}]);
+  // A response for an edited event must not restore either route or comparison.
+  await evaluate(`window.fetch=async(...args)=>{const r=await window.__workingFetch(...args);if(String(args[0]).endsWith('/missions/simulate-risk'))await new Promise(resolve=>window.__releaseAdded=resolve);return r}`);
+  await click('#risk-run');await wait('window.__releaseAdded');
+  await button('风速变化');await evaluate('window.__releaseAdded();window.fetch=window.__workingFetch');
+  await evaluate('new Promise(r=>setTimeout(r,100))');
+  assert.equal(await evaluate("document.querySelectorAll('.ws-risk-delta').length"),0);
+  await button('新增任务');
+  for(const width of [1101,1100,768,390,320]){await viewport(width,844);await layout();if(width<=1100)for(const region of ['事件设置','空间影响','预演结果']){await button(region);await layout();}}
   assert.deepEqual(page.errors,[]);
-  console.log('Risk browser regression passed: adoption, wind boundaries, stale responses, retry, baseline mismatch, map selection, resizing and responsive layouts.');
+  console.log('Risk browser regression passed: added targets, dependencies, comparison toggles, task edits and event switching; adoption, wind boundaries, stale responses, retry, baseline mismatch, map selection, resizing and responsive layouts.');
 } finally {
   page?.close(); await browser.send('Target.disposeBrowserContext', { browserContextId }); browser.close();
 }

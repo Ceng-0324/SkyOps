@@ -6,3 +6,4 @@ export * from "../src/features/mission/spatialPlanning";
 export * from "../src/features/mission/TaskTreeViewer";
 
 export * from "../src/api/riskSimulation";
+export * from "../src/features/mission/taskRiskInput";
