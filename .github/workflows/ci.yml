@@ -61,7 +61,7 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Verify F01–F03 frontend clients against the real backend
+      - name: Verify F01–F04 frontend clients against the real backend
         working-directory: backend
         run: uv run python ../frontend/scripts/smoke-environment.py --workspace
 

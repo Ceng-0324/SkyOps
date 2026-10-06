@@ -43,6 +43,7 @@ function obstacleSummary(obstacle: Obstacle, result: ObstacleDetectionResult): H
 }
 
 export type ScenePlanView = {
+  affectedTaskIds?: string[];
   geometry: PlanningGeometry | null;
   primary: Candidate | undefined;
   comparison: Candidate | undefined;
@@ -200,6 +201,7 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
         el.dataset.routeIndices = [...indices, ...(index === 0 ? [visits.length - 1] : [])].join(",");
         el.textContent = `${index === 0 ? "S" : index}${indices.length > 1 ? "+" : ""}`;
         const label = indices.map(i => i === 0 ? "起点 / 返回点" : `第 ${i} 次访问`).join("、");
+        el.dataset.visitLabel = label;
         el.setAttribute("aria-label", `查看${label}`); el.setAttribute("aria-pressed", "false"); el.title = label;
         el.dataset.routeVisit = String(index);
         L.DomEvent.disableClickPropagation(el); el.addEventListener("click", () => planVisit.current?.(index));
@@ -208,6 +210,19 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
     }
     return () => { group.remove(); };
   }, [planView?.geometry, planView?.primary, planView?.comparison, vertical]);
+  // Update risk rings without rebuilding markers or stealing keyboard focus.
+  useEffect(() => {
+    const affected = new Set(planView?.affectedTaskIds ?? []);
+    container.current?.querySelectorAll<HTMLElement>("[data-route-indices]").forEach(el => {
+      const impacted = el.dataset.routeIndices?.split(",").some(i => {
+        const visit = planView?.primary?.visits[Number(i) - 1];
+        return visit && affected.has(visit.task_id);
+      });
+      el.classList.toggle("is-risk-affected", Boolean(impacted));
+      const label = `${el.dataset.visitLabel}${impacted ? " · 受风速假设影响" : ""}`;
+      el.setAttribute("aria-label", `查看${label}`); el.title = label;
+    });
+  }, [planView?.affectedTaskIds, planView?.primary, planView?.geometry, vertical]);
   // Selection changes only marker styling: preserve the focused DOM node for keyboard users.
   useEffect(() => {
     const index = planView?.visitIndex;
@@ -300,9 +315,9 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
     <div className="ws-scene-map-heading"><label htmlFor="scene-projection">{campus ? "建筑巡检演示" : "局部坐标 / m"}</label><select id="scene-projection" className="ws-input" value={vertical} onChange={e => setVertical(Number(e.target.value) as SceneProjection)}><option value={1}>俯视 XY</option><option value={2}>侧视 XZ</option></select><span>{campus ? "Mock · 模拟配准" : result ? sceneSourceNames[result.source] : "等待检测"}</span></div>
     {campus && <div className="ws-scene-view-switch" role="group" aria-label="场景底图"><button aria-pressed={imagery} onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>影像叠加</button><button aria-pressed={!imagery} onClick={() => setShowImage(false)}>坐标核验</button></div>}
     {campus && imageFailed && <div className="ws-scene-image-error" role="alert">影像加载失败，已切换坐标图。<button className="ws-text-button" onClick={() => { setVertical(1); setShowImage(true); setImageFailed(false); }}>重试加载</button></div>}
-    <div className="ws-scene-map-tools"><button className="ws-icon" aria-label="放大场景" onClick={() => map.current?.zoomIn()}><Plus size={17} /></button><button className="ws-icon" aria-label="缩小场景" onClick={() => map.current?.zoomOut()}><Minus size={17} /></button><button className="ws-icon" aria-label="显示全部障碍" onClick={() => fit(true)}><Focus size={17} /></button><button className="ws-icon" aria-label="显示障碍图层" aria-pressed={showObstacles} onClick={() => setShowObstacles(!showObstacles)}><Layers size={17} /></button></div>
+    <div className="ws-scene-map-tools"><button className="ws-icon" aria-label="放大场景" onClick={() => map.current?.zoomIn()}><Plus size={17} /></button><button className="ws-icon" aria-label="缩小场景" onClick={() => map.current?.zoomOut()}><Minus size={17} /></button><button className="ws-icon" aria-label={planView ? "显示完整路线" : "显示全部障碍"} onClick={() => fit(true)}><Focus size={17} /></button><button className="ws-icon" aria-label="显示障碍图层" aria-pressed={showObstacles} onClick={() => setShowObstacles(!showObstacles)}><Layers size={17} /></button></div>
     {selected && valid && <button className="ws-button ws-scene-locate" onClick={() => fit(false)}><Focus size={15} />定位选中障碍</button>}
     {!planView && (!result || !obstacles.length || !valid) && <div className="ws-scene-map-empty" role="status"><strong>{!valid ? "坐标超出可视范围" : state.status === "loading" ? "正在检测场景" : state.status === "error" ? "检测未完成" : result ? "本次未检出障碍" : "等待场景数据"}</strong><p>{!valid ? "当前视图无法可靠表示该坐标范围，请在列表查看原始数值。" : result ? "没有保留的点簇；这不代表空间已确认安全。" : "从左侧选择点云并运行检测，结果将在此展示。"}</p></div>}
-    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{planView ? "实线：当前路线 · 虚线：对照路线 · S：起止点 · 数字：访问顺序" : campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心"}</span>{campus && !planView && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
+    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{planView?.affectedTaskIds ? "青色：原路线 · 琥珀外圈：受事件影响 · S：起止点" : planView ? "实线：当前路线 · 虚线：对照路线 · S：起止点 · 数字：访问顺序" : campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心"}</span>{campus && !planView && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
   </div>;
 }

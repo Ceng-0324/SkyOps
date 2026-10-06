@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-for (const script of ["test-home-browser.mjs", "test-spatial-task-browser.mjs", "test-scene-browser.mjs", "test-spatial-plans-browser.mjs"]) {
+for (const script of ["test-home-browser.mjs", "test-spatial-task-browser.mjs", "test-scene-browser.mjs", "test-spatial-plans-browser.mjs", "test-risk-browser.mjs"]) {
   console.log(`Browser regression: ${script}`);
   const result = spawnSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url))], { stdio: "inherit", timeout: 180_000 });
   if (result.error) console.error(result.error.message);

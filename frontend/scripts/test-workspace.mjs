@@ -13,5 +13,5 @@ await build({
     rollupOptions: { external: ["react", "react/jsx-runtime", "react-dom/server", "zustand", "zustand/vanilla"] }, minify: false,
   },
 });
-const result = spawnSync(process.execPath, ["--test", smoke ? "tests/workspace.smoke.mjs" : "tests/workspace.test.mjs"], { stdio: "inherit" });
+const result = spawnSync(process.execPath, ["--test", ...(smoke ? ["tests/workspace.smoke.mjs"] : ["tests/workspace.test.mjs", "tests/risk.test.mjs"])], { stdio: "inherit" });
 process.exitCode = result.status ?? 1;

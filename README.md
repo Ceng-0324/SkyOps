@@ -38,7 +38,7 @@
 
 The dark dashboard and Task / Scene / Plan workspace implement the F01–F03 simulation loop: structured task parsing, point-cloud obstacle detection, and candidate route comparison. The integrated image workflow currently uses a paired mock campus and target A; real registration, full multimodal input, and persistent planning results are future work.
 
-The F04 backend now previews wind changes and added tasks against a selected F03 candidate, with rule evidence, dependency impacts and response comparisons. Its workspace UI is pending design confirmation. Existing risk, incident and review screens remain in an explicitly separate scenario reference tool. This is not completion of the full five-view redesign. See [development status and acceptance gates](docs/DEVELOPMENT_PLAN.md); local verification does not replace PR CI and merge approval.
+The F04 backend now previews wind changes and added tasks against a selected F03 candidate, with rule evidence, dependency impacts and response comparisons. The independent risk tab now locally implements wind previews for an explicitly adopted draft, with invalidation, affected map points, rule evidence and response comparisons; the added-task UI remains pending discussion. Existing risk, incident and review screens remain in an explicitly separate scenario reference tool. This is not completion of the full five-view redesign. See [development status and acceptance gates](docs/DEVELOPMENT_PLAN.md); local verification does not replace PR CI and merge approval.
 
 ## Overview
 
