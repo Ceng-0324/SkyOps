@@ -168,6 +168,38 @@ export type MissionReviewResponse = {
   mission_review: MissionReview;
 };
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isReplanDecision(value: unknown): value is ReplanDecision {
+  return isRecord(value)
+    && typeof value.incident_id === "string"
+    && typeof value.decision === "string"
+    && isStringArray(value.actions)
+    && isStringArray(value.affected_segments)
+    && typeof value.makeup_flight_required === "boolean"
+    && typeof value.human_takeover_required === "boolean"
+    && typeof value.reason === "string"
+    && isStringArray(value.alternatives_considered);
+}
+
+function isMissionReview(value: unknown): value is MissionReview {
+  return isRecord(value)
+    && typeof value.mission_id === "string"
+    && typeof value.completion_rate === "number"
+    && Number.isFinite(value.completion_rate)
+    && value.completion_rate >= 0 && value.completion_rate <= 100
+    && typeof value.data_quality_score === "number"
+    && Number.isFinite(value.data_quality_score)
+    && value.data_quality_score >= 0 && value.data_quality_score <= 100
+    && isStringArray(value.risk_trigger_log)
+    && isStringArray(value.uncovered_areas)
+    && isStringArray(value.makeup_flight_plan)
+    && isStringArray(value.human_review_checklist)
+    && isStringArray(value.next_mission_optimizations);
+}
+
 export const DEFAULT_SCENARIO_ID = "shenzhen_nanshan_highrise_demo";
 export const DEFAULT_MISSION_ID = "mission-shenzhen-nanshan-highrise-demo";
 
@@ -199,20 +231,28 @@ export async function createMissionPlan(
   return response as MissionPlanResponse;
 }
 
-export function createReplanDecision(
+export async function createReplanDecision(
   request: MissionReplanRequest,
 ): Promise<MissionReplanResponse> {
-  return apiRequest<MissionReplanResponse>("/missions/replan", {
+  const response = await apiRequest<unknown>("/missions/replan", {
     method: "POST",
     body: request,
   });
+  if (!isRecord(response) || !isReplanDecision(response.replan_decision)) {
+    throw new Error("Invalid mission-replan response");
+  }
+  return response as MissionReplanResponse;
 }
 
-export function createMissionReview(
+export async function createMissionReview(
   request: MissionReviewRequest,
 ): Promise<MissionReviewResponse> {
-  return apiRequest<MissionReviewResponse>("/missions/review", {
+  const response = await apiRequest<unknown>("/missions/review", {
     method: "POST",
     body: request,
   });
+  if (!isRecord(response) || !isMissionReview(response.mission_review)) {
+    throw new Error("Invalid mission-review response");
+  }
+  return response as MissionReviewResponse;
 }

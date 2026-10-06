@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createWorkspace, createEnvironmentStore, createCandidates, createMissionPlan, demoTask, demoGeometry, readCandidateResult, TaskTreeViewer } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
+import { createWorkspace, createEnvironmentStore, createCandidates, createMissionPlan, createReplanDecision, createMissionReview, demoTask, demoGeometry, readCandidateResult, TaskTreeViewer } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
 
 const detection = { source: "mock", obstacles: [], algorithm: "test", detection_time: "2026-10-03T00:00:00Z" };
 const tree = {
@@ -132,6 +132,16 @@ test("task client validates task/dependency contract and exposes FastAPI field e
   await assert.rejects(createMissionPlan({ raw_user_input: demoTask }), /Invalid task/);
   t.mock.method(globalThis, "fetch", async () => Response.json({ detail: [{ loc: ["body", "scene", "start"], msg: "outside bounds" }] }, { status: 422 }));
   await assert.rejects(createCandidates(request), /body.scene.start: outside bounds/);
+});
+
+test("reference clients reject malformed replan and review responses", async t => {
+  const incident = { id: "incident", mission_id: "mission", event_type: "wind_speed_spike", observed_value: "9", threshold: "8", severity: "high", source_type: "mock", description: "test" };
+  t.mock.method(globalThis, "fetch", async (url) => {
+    if (url === "/missions/replan") return Response.json({ replan_decision: { incident_id: "incident" } });
+    return Response.json({ mission_review: { mission_id: "mission", completion_rate: 101 } });
+  });
+  await assert.rejects(createReplanDecision({ incident_event: incident }), /Invalid mission-replan response/);
+  await assert.rejects(createMissionReview({ incident_events: [incident] }), /Invalid mission-review response/);
 });
 
 const { prepareSpatialPlanning, defaultPlanningSettings } = await import("../node_modules/.tmp/workspace-tests/workspace.mjs");

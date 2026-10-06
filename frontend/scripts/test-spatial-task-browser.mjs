@@ -181,7 +181,7 @@ try {
   await send('Input.dispatchMouseEvent',{type:'mousePressed',...handle,button:'left',clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:handle.x+60,y:handle.y,button:'left',buttons:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:handle.x+60,y:handle.y,button:'left',clickCount:1});
-  assert.equal(await evaluate("Math.round(document.querySelector('.ws-task-panel').getBoundingClientRect().width)"),416);
+  await wait("Math.round(document.querySelector('.ws-task-panel').getBoundingClientRect().width)===416");
   await evaluate("document.querySelector('[aria-label=调整任务面板宽度]').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))");
   await click('.ws-point-row'); await evaluate("document.querySelector('[aria-label=调整对象详情宽度]').focus()");
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'End',code:'End'});
