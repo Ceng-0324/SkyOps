@@ -44,6 +44,11 @@ function obstacleSummary(obstacle: Obstacle, result: ObstacleDetectionResult): H
 
 export type ScenePlanView = {
   affectedTaskIds?: string[];
+  affectedLabel?: string;
+  comparisonColor?: string;
+  showPrimary?: boolean;
+  showComparison?: boolean;
+  caption?: string;
   geometry: PlanningGeometry | null;
   primary: Candidate | undefined;
   comparison: Candidate | undefined;
@@ -167,9 +172,9 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
     const group = L.layerGroup().addTo(instance);
     const project = (p: number[]): L.LatLngTuple => [p[vertical], p[0]];
     for (const [candidate, kind] of [[planView.comparison, "comparison"], [planView.primary, "primary"]] as const) {
-      if (!candidate?.path) continue;
+      if (!candidate?.path || (kind === "primary" ? planView.showPrimary === false : planView.showComparison === false)) continue;
       if (kind === "primary") L.polyline(candidate.path.points.map(project), { color: "#112e3b", weight: 7, opacity: .9, interactive: false }).addTo(group);
-      const route = L.polyline(candidate.path.points.map(project), { color: kind === "primary" ? "#8edce6" : "#dbb97f", weight: 3, dashArray: kind === "primary" ? undefined : "8 7", interactive: false }).addTo(group);
+      const route = L.polyline(candidate.path.points.map(project), { color: kind === "primary" ? "#8edce6" : planView.comparisonColor ?? "#dbb97f", weight: 3, dashArray: kind === "primary" ? undefined : "8 7", interactive: false }).addTo(group);
       route.getElement()?.setAttribute("data-route", kind);
       if (kind === "primary") candidate.path.points.slice(1).forEach((point, index) => {
         const previous = candidate.path!.points[index];
@@ -184,7 +189,14 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
         L.marker([previous[vertical] + dy * .6, previous[0] + dx * .6], { keyboard: false, interactive: false, zIndexOffset: -1000, icon: L.divIcon({ className: "ws-plan-route-arrow", html: svg.outerHTML, iconSize: [20, 20], iconAnchor: [10, 10] }) }).addTo(group);
       });
     }
-    const candidate = planView.primary;
+    // Route visibility is independent from route styling: when the projected
+    // route is hidden, the comparison route still needs its own visit markers
+    // and keyboard semantics instead of becoming a bare line.
+    const candidate = planView.showPrimary !== false
+      ? planView.primary
+      : planView.showComparison !== false
+        ? planView.comparison
+        : undefined;
     if (candidate?.path && planView.geometry) {
       const visits = [planView.geometry.start, ...candidate.visits.map(v => v.position), planView.geometry.start];
       const locations = new Map<string, { position: number[]; indices: number[] }>();
@@ -209,20 +221,25 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
       }
     }
     return () => { group.remove(); };
-  }, [planView?.geometry, planView?.primary, planView?.comparison, vertical]);
+  }, [planView?.geometry, planView?.primary, planView?.comparison, planView?.showPrimary, planView?.showComparison, planView?.comparisonColor, vertical]);
   // Update risk rings without rebuilding markers or stealing keyboard focus.
   useEffect(() => {
     const affected = new Set(planView?.affectedTaskIds ?? []);
+    const visibleCandidate = planView?.showPrimary !== false
+      ? planView?.primary
+      : planView?.showComparison !== false
+        ? planView?.comparison
+        : undefined;
     container.current?.querySelectorAll<HTMLElement>("[data-route-indices]").forEach(el => {
       const impacted = el.dataset.routeIndices?.split(",").some(i => {
-        const visit = planView?.primary?.visits[Number(i) - 1];
+        const visit = visibleCandidate?.visits[Number(i) - 1];
         return visit && affected.has(visit.task_id);
       });
       el.classList.toggle("is-risk-affected", Boolean(impacted));
-      const label = `${el.dataset.visitLabel}${impacted ? " · 受风速假设影响" : ""}`;
+      const label = `${el.dataset.visitLabel}${impacted ? ` · ${planView?.affectedLabel ?? "受事件影响"}` : ""}`;
       el.setAttribute("aria-label", `查看${label}`); el.title = label;
     });
-  }, [planView?.affectedTaskIds, planView?.primary, planView?.geometry, vertical]);
+  }, [planView?.affectedTaskIds, planView?.primary, planView?.comparison, planView?.geometry, planView?.showPrimary, planView?.showComparison, planView?.affectedLabel, vertical]);
   // Selection changes only marker styling: preserve the focused DOM node for keyboard users.
   useEffect(() => {
     const index = planView?.visitIndex;
@@ -230,11 +247,17 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
       const active = index !== null && index !== undefined && el.dataset.routeIndices?.split(",").includes(String(index));
       el.classList.toggle("is-selected", Boolean(active)); el.setAttribute("aria-pressed", String(Boolean(active)));
     });
-    if (index === null || index === undefined || !planView?.geometry || !planView.primary?.path) return;
-    const positions = [planView.geometry.start, ...planView.primary.visits.map(v => v.position), planView.geometry.start];
+    if (index === null || index === undefined || !planView?.geometry) return;
+    const candidate = planView.showPrimary !== false
+      ? planView.primary
+      : planView.showComparison !== false
+        ? planView.comparison
+        : undefined;
+    if (!candidate?.path) return;
+    const positions = [planView.geometry.start, ...candidate.visits.map(v => v.position), planView.geometry.start];
     const point = positions[index];
     if (point) map.current?.panInside([point[vertical], point[0]], cameraPadding());
-  }, [planView?.visitIndex, planView?.geometry, planView?.primary, planView?.comparison, vertical]);
+  }, [planView?.visitIndex, planView?.geometry, planView?.primary, planView?.comparison, planView?.showPrimary, planView?.showComparison, planView?.comparisonColor, vertical]);
   useEffect(() => {
     const next = planBounds() ?? (campus && vertical === 1 ? { minimum: [38, 30] as [number, number], maximum: [222, 174] as [number, number] } : sceneBounds(result?.obstacles ?? [], vertical));
     fittedBounds.current = next;
@@ -318,6 +341,6 @@ export function SceneMap({ state, onSelect, detailOpen, campus = false, planView
     <div className="ws-scene-map-tools"><button className="ws-icon" aria-label="放大场景" onClick={() => map.current?.zoomIn()}><Plus size={17} /></button><button className="ws-icon" aria-label="缩小场景" onClick={() => map.current?.zoomOut()}><Minus size={17} /></button><button className="ws-icon" aria-label={planView ? "显示完整路线" : "显示全部障碍"} onClick={() => fit(true)}><Focus size={17} /></button><button className="ws-icon" aria-label="显示障碍图层" aria-pressed={showObstacles} onClick={() => setShowObstacles(!showObstacles)}><Layers size={17} /></button></div>
     {selected && valid && <button className="ws-button ws-scene-locate" onClick={() => fit(false)}><Focus size={15} />定位选中障碍</button>}
     {!planView && (!result || !obstacles.length || !valid) && <div className="ws-scene-map-empty" role="status"><strong>{!valid ? "坐标超出可视范围" : state.status === "loading" ? "正在检测场景" : state.status === "error" ? "检测未完成" : result ? "本次未检出障碍" : "等待场景数据"}</strong><p>{!valid ? "当前视图无法可靠表示该坐标范围，请在列表查看原始数值。" : result ? "没有保留的点簇；这不代表空间已确认安全。" : "从左侧选择点云并运行检测，结果将在此展示。"}</p></div>}
-    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{planView?.affectedTaskIds ? "青色：原路线 · 琥珀外圈：受事件影响 · S：起止点" : planView ? "实线：当前路线 · 虚线：对照路线 · S：起止点 · 数字：访问顺序" : campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心"}</span>{campus && !planView && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
+    <div className="ws-scene-map-caption"><span>X → · {vertical === 1 ? "Y" : "Z"} ↑</span><span>{scale}</span><span>{planView?.caption ?? (planView?.affectedTaskIds ? "青色：原路线 · 琥珀外圈：受事件影响 · S：起止点" : planView ? "实线：当前路线 · 虚线：对照路线 · S：起止点 · 数字：访问顺序" : campus ? "人工演示点位 · 障碍来自合成点云检测" : "轮廓为实际包围盒 · 编号标记为可选中心")}</span>{campus && !planView && <span className="ws-demo-short">A 作业对象 · P1–P3 观察点（30 m）· S 起降点</span>}</div>
   </div>;
 }

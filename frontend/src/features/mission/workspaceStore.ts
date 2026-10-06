@@ -1,5 +1,6 @@
+import { buildTaskRiskEvent, emptyTaskRiskInput, type TaskRiskInput } from "./taskRiskInput";
 import { createStore } from "zustand/vanilla";
-import { simulateWindRisk, type WindRiskResult, type WindRiskRequest } from "../../api/riskSimulation";
+import { simulateRisk, type RiskResult, type RiskRequest } from "../../api/riskSimulation";
 import { createCandidates, type CandidateRequest, type CandidateResult, type PlanningGeometry, type Strategy } from "../../api/candidates";
 import {
   createMissionPlan, createMissionReview, createReplanDecision, DEFAULT_SCENARIO_ID,
@@ -38,9 +39,13 @@ type WorkspaceState = {
   completedIds: string[];
   adoptedStrategy: Strategy | null;
   planningRequest: CandidateRequest | null;
-  risk: RemoteState<WindRiskResult>;
+  risk: RemoteState<RiskResult>;
   riskInput: { wind: string; unknown: boolean };
   riskEdited: boolean;
+  riskEventType: "wind_change" | "task_added";
+  taskRiskInput: TaskRiskInput;
+  setRiskEventType: (type: "wind_change" | "task_added") => void;
+  setTaskRiskInput: (input: TaskRiskInput) => void;
   reference: MissionCycleState;
   setTaskInput: (input: string) => void;
   setGeometry: (geometry: PlanningGeometry) => void;
@@ -54,7 +59,7 @@ type WorkspaceState = {
   reset: () => void;
 };
 
-const defaultServices = { parse: createMissionPlan, generate: createCandidates, replan: createReplanDecision, review: createMissionReview, simulateRisk: simulateWindRisk };
+const defaultServices = { parse: createMissionPlan, generate: createCandidates, replan: createReplanDecision, review: createMissionReview, simulateRisk };
 
 /** One workspace owns its request generations and F02 store; no cross-workspace singleton. */
 export function createWorkspace(services = defaultServices, environment = createEnvironmentStore()) {
@@ -65,7 +70,7 @@ export function createWorkspace(services = defaultServices, environment = create
   const invalidRisk = { risk: idle, riskEdited: false } as const;
   const store = createStore<WorkspaceState>()((set, get) => ({
     taskInput: demoTask, geometry: structuredClone(demoGeometry), task: idle, planning: idle,
-    priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, reference: { status: "idle" }, riskInput: { wind: "", unknown: false },
+    priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, reference: { status: "idle" }, riskInput: { wind: "", unknown: false }, riskEventType: "wind_change", taskRiskInput: emptyTaskRiskInput(),
     setTaskInput: taskInput => {
       taskVersion++; planningVersion++; riskVersion++; referenceVersion++;
       set({ taskInput, task: idle, planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk, priorityIds: [], completedIds: [], reference: { status: "idle" } });
@@ -128,20 +133,42 @@ export function createWorkspace(services = defaultServices, environment = create
       const state = get();
       set({ riskInput: { ...riskInput }, risk: idle, riskEdited: state.riskEdited || state.risk.status !== "idle" });
     },
+    setRiskEventType: riskEventType => {
+      const state = get();
+      if (riskEventType === state.riskEventType) return;
+      riskVersion++;
+      const input = state.taskRiskInput;
+      const first = state.planningRequest?.scene.targets[0]?.ref;
+      set({ riskEventType, risk: idle, riskEdited: state.riskEdited || state.risk.status !== "idle",
+        taskRiskInput: !input.targetRef && first ? { ...input, targetRef: first } : input });
+    },
+    setTaskRiskInput: taskRiskInput => {
+      riskVersion++;
+      const state = get();
+      set({ taskRiskInput: structuredClone(taskRiskInput), risk: idle, riskEdited: state.riskEdited || state.risk.status !== "idle" });
+    },
     simulateRisk: async () => {
       const state = get();
       if (state.risk.status === "loading" || !state.adoptedStrategy || !state.planningRequest
         || state.planning.status !== "success") return;
-      const speed = state.riskInput.unknown ? null : Number(state.riskInput.wind);
-      if (speed !== null && (!state.riskInput.wind.trim() || !Number.isFinite(speed) || speed < 0)) {
-        set({ risk: { status: "error", data: null, error: "请输入不小于 0 的有限风速，或选择风速未知。" } });
-        return;
-      }
       const version = ++riskVersion;
-      const request: WindRiskRequest = structuredClone({
-        planning_request: state.planningRequest, selected_strategy: state.adoptedStrategy,
-        event: { id: `wind-${version}`, type: "wind_change", source: "simulated", timestamp: new Date().toISOString(), wind_speed_mps: speed },
-      });
+      let request: RiskRequest;
+      try {
+        if (state.riskEventType === "task_added") {
+          request = { planning_request: state.planningRequest, selected_strategy: state.adoptedStrategy,
+            event: { ...buildTaskRiskEvent(state.taskRiskInput, state.planningRequest, state.planning.data), id: `task-${version}` } };
+        } else {
+          const speed = state.riskInput.unknown ? null : Number(state.riskInput.wind);
+          if (speed !== null && (!state.riskInput.wind.trim() || !Number.isFinite(speed) || speed < 0)) {
+            throw new Error("请输入不小于 0 的有限风速，或选择风速未知。");
+          }
+          request = { planning_request: state.planningRequest, selected_strategy: state.adoptedStrategy,
+            event: { id: `wind-${version}`, type: "wind_change", source: "simulated", timestamp: new Date().toISOString(), wind_speed_mps: speed } };
+        }
+        request = structuredClone(request);
+      } catch (error) {
+        set({ risk: { status: "error", data: null, error: message(error) } }); return;
+      }
       const baseline = structuredClone(state.planning.data);
       set({ risk: loading, riskEdited: false });
       try {
@@ -172,7 +199,7 @@ export function createWorkspace(services = defaultServices, environment = create
       taskVersion++; planningVersion++; riskVersion++; referenceVersion++;
       environment.getState().reset();
       set({ taskInput: demoTask, geometry: structuredClone(demoGeometry), task: idle, planning: idle,
-        priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, riskInput: { wind: "", unknown: false }, reference: { status: "idle" } });
+        priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, riskInput: { wind: "", unknown: false }, riskEventType: "wind_change", taskRiskInput: emptyTaskRiskInput(), reference: { status: "idle" } });
     },
   }));
   // New detection/reset invalidates every route based on the previous obstacle snapshot.

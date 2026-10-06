@@ -90,3 +90,56 @@
   .ws-risk-visits button { min-height: 44px; }
   .ws-risk-shell .ws-statusbar a { display: none; }
 }
+.ws-risk-event-switch { display:flex; border:1px solid #637a8d; border-radius:4px; margin:12px 0 16px; overflow:hidden; }
+.ws-risk-event-switch button { flex:1; min-height:40px; color:var(--ws-muted); font-size:12px; }
+.ws-risk-event-switch button[aria-pressed="true"] { background:#294653; color:#b7eaf0; }
+.ws-task-risk-fields .ws-input { width:100%; min-height:40px; }
+.ws-task-risk-fields .ws-field-label { display:block; margin:12px 0 6px; }
+.ws-task-risk-fields textarea { resize:vertical; min-height:64px; }
+.ws-risk-target-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; color:var(--ws-muted); font-size:11px; }
+.ws-risk-target-row button { min-height:36px; }
+.ws-risk-order-heading { margin:20px 0 10px; font-size:14px; }
+.ws-risk-order { border-top:1px solid var(--ws-line); font-size:12px; padding:4px 0; }
+.ws-risk-order summary { cursor:pointer; min-height:40px; padding:10px 0; }
+.ws-risk-order summary span { float:right; color:var(--ws-muted); font-size:11px; }
+.ws-risk-order label { display:flex; align-items:center; gap:9px; min-height:42px; padding:6px 0; overflow-wrap:anywhere; }
+.ws-risk-order small { display:block; color:var(--ws-muted); font-size:10px; }
+.ws-risk-order input, .ws-risk-route-switch input { accent-color:#6abfcb; }
+.ws-risk-points { border:0; padding:0; margin:16px 0 8px; min-width:0; }
+.ws-risk-points legend { font-size:12px; margin-bottom:8px; }
+.ws-risk-point-row { display:grid; grid-template-columns:16px repeat(3,minmax(0,1fr)) 28px; gap:5px; align-items:end; margin-bottom:10px; }
+.ws-risk-point-row label { min-width:0; color:var(--ws-muted); font-size:11px; }
+.ws-risk-point-row .ws-input { padding:6px; }
+.ws-risk-point-row > span { padding-bottom:10px; font-size:11px; }
+.ws-risk-point-row > button { min-height:40px; width:28px; }
+.ws-risk-bounds { font-size:11px!important; overflow-wrap:anywhere; }
+.ws-risk-delta { width:100%; border-collapse:collapse; margin-top:14px; font-size:11px; font-variant-numeric:tabular-nums; }
+.ws-risk-delta td,.ws-risk-delta th { padding:9px 0; text-align:right; border-bottom:1px solid var(--ws-line); font-weight:400; }
+.ws-risk-delta th { color:var(--ws-muted); }
+.ws-risk-delta th:first-child { text-align:left; }
+.ws-risk-delta small { display:block; color:#bce5eb; font-size:11px; }
+.ws-risk-task-impact { margin:20px 0; font-size:12px; }
+.ws-risk-task-impact h3 { font-size:13px; margin-bottom:10px; }
+.ws-risk-task-impact > div { margin:12px 0; }
+.ws-risk-task-impact strong { font-weight:500; }
+.ws-risk-task-impact p { margin-top:5px; color:var(--ws-muted); font-size:11px; }
+.ws-risk-route-switch { display:flex; flex-wrap:wrap; gap:8px; font-size:11px; }
+.ws-risk-route-switch label { display:flex; align-items:center; gap:4px; cursor:pointer; min-height:28px; }
+.ws-risk-map .ws-plan-map-toolbar:has(.ws-risk-route-switch) { flex-wrap:wrap; gap:4px 8px; }
+.ws-risk-map-alert.is-task-event { background:#202f35; border-color:#54747d; color:#bde7ed; top:108px; }
+.ws-risk-map:has(.is-task-event) .ws-scene-map-tools,.ws-risk-map:has(.is-task-event) .ws-scene-view-switch { top:180px!important; }
+@media(max-width:760px) {
+  .ws-risk-order label,.ws-risk-event-switch button,.ws-risk-target-row button { min-height:44px; }
+  .ws-risk-route-switch label { min-height:32px; }
+}
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-conclusion { margin-top:18px; padding-bottom:16px; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-conclusion h3 { font-size:20px; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-conclusion > p { line-height:1.75; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-response { padding:12px 0; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-response p { margin-top:6px; line-height:1.7; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-comparison { padding-top:16px; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-delta td,.ws-risk-shell[data-risk-event="task_added"] .ws-risk-delta th { padding:7px 0; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-input .ws-section { padding:14px 23px; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-task-impact { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:16px 0; }
+.ws-risk-task-impact h3,.ws-risk-task-impact > div:first-of-type,.ws-risk-task-impact > p { grid-column:1/-1; }
+.ws-risk-shell[data-risk-event="task_added"] .ws-risk-task-impact > div { margin:0; }

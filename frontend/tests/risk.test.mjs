@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createWorkspace, createEnvironmentStore, demoGeometry, readWindRiskResult, simulateWindRisk, windRuleFacts } from '../node_modules/.tmp/workspace-tests/workspace.mjs';
+import { createWorkspace, createEnvironmentStore, demoGeometry, readWindRiskResult, windRuleFacts, simulateRisk, readTaskRiskResult, taskProjection, buildTaskRiskEvent, emptyTaskRiskInput } from '../node_modules/.tmp/workspace-tests/workspace.mjs';
 const tree = {
     raw_input: '检查对象[A]；完成条件：影像', input_format: 'text', source_type: 'mock', boundary: 'draft', execution_authorized: false, status: 'parsed', unparsed_fragments: [], clarifications: [], definition: { version: 1, nodes: [{
                 id: 'a', action: 'inspect', target: { kind: 'object', label: 'A', refs: ['A'] }, depends_on: [], completion_conditions: ['影像'], parent_id: null
@@ -75,7 +75,7 @@ for (const speed of [8, 7.9, null])
             data.event.timestamp = '2026-10-06T12:00:00Z';
             return Response.json(data);
         });
-        const actual = await simulateWindRisk(req, baseline);
+        const actual = await simulateRisk(req, baseline);
         assert.equal(actual.recommended_response, speed !== null && speed < 8 ? 'continue_original' : 'pause_for_review');
         assert.equal(actual.execution_authorized, false);
     });
@@ -243,4 +243,136 @@ test('unknown wind sends explicit null', async () => {
     finally {
         w.dispose();
     }
+});
+
+const taskInput = { ...emptyTaskRiskInput(), targetRef: 'A', completion: '取得细节影像', after: ['a'] };
+const addedRequest = { ...request, event: buildTaskRiskEvent(taskInput, planning, baseline) };
+function addedResponse(req = addedRequest, base = baseline, state = 'feasible') {
+    const expanded = taskProjection(req, base);
+    const projected = structuredClone(base);
+    projected.scene = expanded.scene;
+    projected.task_tree.raw_input = expanded.raw_user_input;
+    projected.task_tree.input_format = 'json';
+    projected.task_tree.definition = JSON.parse(expanded.raw_user_input);
+    projected.candidates = [structuredClone(base.candidates[0])];
+    const p = projected.candidates[0];
+    p.task_order.push(req.event.task.id);
+    p.visits.push({ ...p.visits[0], task_id: req.event.task.id });
+    p.path.distance_m += 12; p.score.estimated_duration_seconds += 11;
+    const ok = state === 'feasible';
+    if (!ok) {
+        p.status = state === 'budget_exceeded' ? 'budget_exceeded' : 'infeasible';
+        p.path = null; p.score = null; p.task_order = []; p.visits = [];
+        projected.recommended_strategy = null;
+        projected.status = state === 'needs_clarification' ? state : state === 'blocked' ? state : 'no_feasible_plan';
+        if (state === 'needs_clarification') projected.task_tree.status = 'needs_clarification';
+        if (state === 'needs_clarification' || state === 'blocked') { projected.effective_bounds = null; projected.candidates = []; }
+        if (state === 'blocked') projected.rule_evaluation = rule(8);
+    }
+    const alt = (strategy, status, deferred) => ({ strategy, status, reasons: ['依据'], deferred_task_ids: deferred,
+        projected_plan: null, distance_delta_m: null, duration_delta_seconds: null, execution_authorized: false });
+    const pending = [...base.candidates[0].task_order, req.event.task.id];
+    const replan = alt('replan', ok ? 'eligible' : state === 'needs_clarification' ? 'requires_review' : state, ok ? [] : pending);
+    if (ok) Object.assign(replan, { projected_plan: p, distance_delta_m: 12, duration_delta_seconds: 11 });
+    return structuredClone({ status: state === 'needs_clarification' ? state : 'simulated', baseline: base, projected,
+        selected_strategy: req.selected_strategy, event: req.event, rules_after: projected.rule_evaluation,
+        impact: { direct_task_ids: [req.event.task.id], dependent_task_ids: [], rescheduled_task_ids: [], reasons: [] },
+        alternatives: [alt('continue_original','blocked',[req.event.task.id]), alt('pause_for_review','requires_review',pending), replan],
+        recommended_response: ok ? 'replan' : 'pause_for_review', reasons: [], limitations: [], source: 'simulated',
+        execution_authorized: false, requires_human_confirmation: true });
+}
+for (const state of ['feasible', 'infeasible', 'budget_exceeded', 'blocked', 'needs_clarification']) {
+    test(`added task client accepts ${state} without inventing a route`, async t => {
+        t.mock.method(globalThis, 'fetch', async (url, options) => {
+            assert.equal(url, '/missions/simulate-risk');
+            assert.deepEqual(JSON.parse(options.body), addedRequest);
+            return Response.json(addedResponse(addedRequest, baseline, state));
+        });
+        const result = await simulateRisk(addedRequest, baseline);
+        assert.equal(result.alternatives[2].projected_plan !== null, state === 'feasible');
+    });
+}
+const addedInvalid = {
+    auth: r => r.execution_authorized = true,
+    event: r => r.event.task.completion_conditions = ['other'],
+    timestamp: r => r.event.timestamp = 'invalid',
+    baseline: r => r.baseline.scene.start[0]++,
+    geometry: r => r.projected.scene.targets[0].observation_points[0][0]++,
+    dsl: r => r.projected.task_tree.raw_input = '{}',
+    tasks: r => r.projected.task_tree.definition.nodes[0].completion_conditions = ['changed'],
+    rule: r => r.rules_after.passed = false,
+    impact: r => r.impact.dependent_task_ids = ['a'],
+    ordering: r => r.impact.rescheduled_task_ids = ['a'],
+    recommendation: r => r.recommended_response = 'continue_original',
+    missing_alternative: r => r.alternatives.pop(),
+    false_delta: r => r.alternatives[2].distance_delta_m = 0,
+    pause_route: r => r.alternatives[1].projected_plan = plan,
+    fake_visit: r => r.projected.candidates[0].visits[1].position[0]++,
+    unknown_task: r => r.projected.candidates[0].task_order.push('other'),
+    completed: r => r.projected.candidates[0].assumed_completed_task_ids = ['a'],
+    no_new_task: r => r.projected.candidates[0].task_order.pop(),
+};
+for (const [name, mutate] of Object.entries(addedInvalid)) test(`added task rejects ${name}`, () => {
+    const value = addedResponse(); mutate(value);
+    assert.throws(() => readTaskRiskResult(value, addedRequest, baseline));
+});
+test('task form reuses existing geometry and never mutates baseline', () => {
+    const original = structuredClone(planning);
+    const event = buildTaskRiskEvent(taskInput, planning, baseline);
+    assert.deepEqual(event.geometry, []); assert.deepEqual(event.task.depends_on, ['a']);
+    assert.deepEqual(planning, original);
+});
+const invalidInputs = {
+    completion: { completion: '' }, target: { targetRef: 'missing' },
+    unknown_dependency: { after: ['missing'] }, cycle: { before: ['a'] },
+    duplicate_dependency: { after: ['a','a'] }, long_completion: { completion: 'x'.repeat(513) },
+    duplicate_target: { targetMode: 'new', newTarget: 'A', points: [['1','1','2']] },
+    empty_point: { targetMode: 'new', newTarget: 'D', points: [['','1','2']] },
+    nan_point: { targetMode: 'new', newTarget: 'D', points: [['NaN','1','2']] },
+    bounds: { targetMode: 'new', newTarget: 'D', points: [['9999','1','2']] },
+    duplicate_points: { targetMode: 'new', newTarget: 'D', points: [['1','1','2'],['1.0','1','2']] },
+};
+for (const [name, change] of Object.entries(invalidInputs)) test(`invalid added input ${name} is rejected`, () => {
+    assert.throws(() => buildTaskRiskEvent({ ...taskInput, ...change }, planning, baseline));
+});
+test('new target coordinates preserve Z and explicit units', () => {
+    const event = buildTaskRiskEvent({ ...taskInput, targetMode:'new', newTarget:'D', points:[['6','6','2']] }, planning, baseline);
+    assert.deepEqual(event.geometry, [{ref:'D', observation_points:[[6,6,2]]}]);
+});
+test('transitive dependency cycle and completed descendant are rejected', () => {
+    const base = structuredClone(baseline);
+    base.task_tree.definition.nodes.push({ ...base.task_tree.definition.nodes[0], id:'b', depends_on:['a'] });
+    assert.throws(() => buildTaskRiskEvent({ ...taskInput, after:['b'], before:['a'] }, planning, base), /循环/);
+    assert.throws(() => buildTaskRiskEvent({ ...taskInput, after:[], before:['a'] }, { ...planning, completed_task_ids:['b'] }, base), /已声明完成/);
+});
+for (const mutation of ['event_type','task_fields','geometry','adopt']) for (const fail of [false,true]) {
+    test(`added task ${mutation} isolates late ${fail?'error':'success'}`, async () => {
+        const pending=deferred(); const w=workspace(()=>pending.promise);
+        try {
+            await ready(w); w.store.getState().setRiskEventType('task_added');
+            w.store.getState().setTaskRiskInput(taskInput);
+            const run=w.store.getState().simulateRisk();
+            assert.equal(w.store.getState().risk.status,'loading');
+            if(mutation==='event_type')w.store.getState().setRiskEventType('wind_change');
+            if(mutation==='task_fields')w.store.getState().setTaskRiskInput({...taskInput,completion:'新条件'});
+            if(mutation==='geometry')w.store.getState().setGeometry({...demoGeometry,clearance_m:1});
+            if(mutation==='adopt')w.store.getState().adoptStrategy('focused_observation');
+            fail?pending.reject(new Error('offline')):pending.resolve(addedResponse());await run;
+            assert.equal(w.store.getState().risk.status,'idle');
+        }finally{w.dispose();}
+    });
+}
+test('invalid task input never calls server', async () => {
+    const w=workspace(()=>assert.fail('invalid request'));
+    try{await ready(w);w.store.getState().setRiskEventType('task_added');await w.store.getState().simulateRisk();assert.equal(w.store.getState().risk.status,'error');}finally{w.dispose();}
+});
+
+test('added task accepts different completion credits across candidate strategies', () => {
+    const req=structuredClone(addedRequest),base=structuredClone(baseline);
+    req.planning_request.completed_task_ids=['a'];
+    base.candidates.push({...structuredClone(base.candidates[0]),strategy:'supplementary_capture',status:'no_remaining_tasks',task_order:[],visits:[],path:null,score:null,assumed_completed_task_ids:['a']});
+    const r=addedResponse(req,base);const p=structuredClone(r.projected.candidates[0]);
+    p.strategy='supplementary_capture';p.assumed_completed_task_ids=['a'];p.task_order=[req.event.task.id];p.visits=p.visits.filter(v=>v.task_id===req.event.task.id);
+    r.projected.candidates.push(p);
+    assert.doesNotThrow(()=>readTaskRiskResult(r,req,base));
 });
