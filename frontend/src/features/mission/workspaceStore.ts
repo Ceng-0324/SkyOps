@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
-import { createCandidates, type CandidateResult, type PlanningGeometry, type Strategy } from "../../api/candidates";
+import { simulateWindRisk, type WindRiskResult, type WindRiskRequest } from "../../api/riskSimulation";
+import { createCandidates, type CandidateRequest, type CandidateResult, type PlanningGeometry, type Strategy } from "../../api/candidates";
 import {
   createMissionPlan, createMissionReview, createReplanDecision, DEFAULT_SCENARIO_ID,
   type IncidentEvent, type MissionPlanResponse,
@@ -35,35 +36,43 @@ type WorkspaceState = {
   planning: RemoteState<CandidateResult>;
   priorityIds: string[];
   completedIds: string[];
-  selectedStrategy: Strategy | null;
+  adoptedStrategy: Strategy | null;
+  planningRequest: CandidateRequest | null;
+  risk: RemoteState<WindRiskResult>;
+  riskInput: { wind: string; unknown: boolean };
+  riskEdited: boolean;
   reference: MissionCycleState;
   setTaskInput: (input: string) => void;
   setGeometry: (geometry: PlanningGeometry) => void;
   setTaskFlag: (kind: "priority" | "completed", id: string, checked: boolean) => void;
   parse: () => Promise<void>;
   generate: () => Promise<void>;
-  selectStrategy: (strategy: Strategy) => void;
+  adoptStrategy: (strategy: Strategy) => void;
+  setRiskInput: (input: { wind: string; unknown: boolean }) => void;
+  simulateRisk: () => Promise<void>;
   loadReference: (incident: IncidentEvent) => Promise<void>;
   reset: () => void;
 };
 
-const defaultServices = { parse: createMissionPlan, generate: createCandidates, replan: createReplanDecision, review: createMissionReview };
+const defaultServices = { parse: createMissionPlan, generate: createCandidates, replan: createReplanDecision, review: createMissionReview, simulateRisk: simulateWindRisk };
 
 /** One workspace owns its request generations and F02 store; no cross-workspace singleton. */
 export function createWorkspace(services = defaultServices, environment = createEnvironmentStore()) {
   let taskVersion = 0;
   let planningVersion = 0;
   let referenceVersion = 0;
+  let riskVersion = 0;
+  const invalidRisk = { risk: idle, riskEdited: false } as const;
   const store = createStore<WorkspaceState>()((set, get) => ({
     taskInput: demoTask, geometry: structuredClone(demoGeometry), task: idle, planning: idle,
-    priorityIds: [], completedIds: [], selectedStrategy: null, reference: { status: "idle" },
+    priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, reference: { status: "idle" }, riskInput: { wind: "", unknown: false },
     setTaskInput: taskInput => {
-      taskVersion++; planningVersion++; referenceVersion++;
-      set({ taskInput, task: idle, planning: idle, selectedStrategy: null, priorityIds: [], completedIds: [], reference: { status: "idle" } });
+      taskVersion++; planningVersion++; riskVersion++; referenceVersion++;
+      set({ taskInput, task: idle, planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk, priorityIds: [], completedIds: [], reference: { status: "idle" } });
     },
     setGeometry: geometry => {
-      planningVersion++;
-      set({ geometry: structuredClone(geometry), planning: idle, selectedStrategy: null });
+      planningVersion++; riskVersion++;
+      set({ geometry: structuredClone(geometry), planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk });
     },
     setTaskFlag: (kind, id, checked) => {
       const state = get();
@@ -71,15 +80,15 @@ export function createWorkspace(services = defaultServices, environment = create
       const key = kind === "priority" ? "priorityIds" : "completedIds";
       const ids = state[key].filter(value => value !== id);
       if (checked) ids.push(id);
-      planningVersion++;
-      set({ [key]: ids, planning: idle, selectedStrategy: null });
+      planningVersion++; riskVersion++;
+      set({ [key]: ids, planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk });
     },
     parse: async () => {
       if (get().task.status === "loading" || !get().taskInput.trim()) return;
       const version = ++taskVersion;
-      planningVersion++; referenceVersion++;
+      planningVersion++; riskVersion++; referenceVersion++;
       const input = get().taskInput;
-      set({ task: loading, planning: idle, selectedStrategy: null, priorityIds: [], completedIds: [], reference: { status: "idle" } });
+      set({ task: loading, planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk, priorityIds: [], completedIds: [], reference: { status: "idle" } });
       try {
         const data = await services.parse({ raw_user_input: input, scenario_id: DEFAULT_SCENARIO_ID });
         if (version === taskVersion) set({ task: { status: "success", data, error: null } });
@@ -92,23 +101,55 @@ export function createWorkspace(services = defaultServices, environment = create
       const detection = environment.getState();
       if (state.planning.status === "loading" || state.task.status !== "success"
         || state.task.data.task_tree.status !== "parsed" || detection.status !== "success") return;
-      const version = ++planningVersion;
+      const version = ++planningVersion; riskVersion++;
       const request = structuredClone({
         raw_user_input: state.taskInput, scenario_id: DEFAULT_SCENARIO_ID,
         scene: { ...state.geometry, obstacle_detection: detection.result },
         priority_task_ids: state.priorityIds, completed_task_ids: state.completedIds,
       });
-      set({ planning: loading, selectedStrategy: null });
+      set({ planning: loading, adoptedStrategy: null, planningRequest: null, ...invalidRisk });
       try {
         const data = await services.generate(request);
-        if (version === planningVersion) set({ planning: { status: "success", data, error: null }, selectedStrategy: data.recommended_strategy });
+        if (version === planningVersion) set({ planning: { status: "success", data, error: null }, planningRequest: request });
       } catch (error) {
         if (version === planningVersion) set({ planning: { status: "error", data: null, error: message(error) } });
       }
     },
-    selectStrategy: strategy => {
-      const { planning } = get();
-      if (planning.status === "success" && planning.data.candidates.some(c => c.strategy === strategy && c.status === "feasible")) set({ selectedStrategy: strategy });
+    adoptStrategy: strategy => {
+      const { planning, adoptedStrategy } = get();
+      if (strategy !== adoptedStrategy && planning.status === "success"
+        && planning.data.candidates.some(c => c.strategy === strategy && c.status === "feasible")) {
+        riskVersion++;
+        set({ adoptedStrategy: strategy, ...invalidRisk });
+      }
+    },
+    setRiskInput: riskInput => {
+      riskVersion++;
+      const state = get();
+      set({ riskInput: { ...riskInput }, risk: idle, riskEdited: state.riskEdited || state.risk.status !== "idle" });
+    },
+    simulateRisk: async () => {
+      const state = get();
+      if (state.risk.status === "loading" || !state.adoptedStrategy || !state.planningRequest
+        || state.planning.status !== "success") return;
+      const speed = state.riskInput.unknown ? null : Number(state.riskInput.wind);
+      if (speed !== null && (!state.riskInput.wind.trim() || !Number.isFinite(speed) || speed < 0)) {
+        set({ risk: { status: "error", data: null, error: "请输入不小于 0 的有限风速，或选择风速未知。" } });
+        return;
+      }
+      const version = ++riskVersion;
+      const request: WindRiskRequest = structuredClone({
+        planning_request: state.planningRequest, selected_strategy: state.adoptedStrategy,
+        event: { id: `wind-${version}`, type: "wind_change", source: "simulated", timestamp: new Date().toISOString(), wind_speed_mps: speed },
+      });
+      const baseline = structuredClone(state.planning.data);
+      set({ risk: loading, riskEdited: false });
+      try {
+        const data = await services.simulateRisk(request, baseline);
+        if (version === riskVersion) set({ risk: { status: "success", data, error: null } });
+      } catch (error) {
+        if (version === riskVersion) set({ risk: { status: "error", data: null, error: message(error) } });
+      }
     },
     loadReference: async incident => {
       const state = get();
@@ -128,10 +169,10 @@ export function createWorkspace(services = defaultServices, environment = create
       }
     },
     reset: () => {
-      taskVersion++; planningVersion++; referenceVersion++;
+      taskVersion++; planningVersion++; riskVersion++; referenceVersion++;
       environment.getState().reset();
       set({ taskInput: demoTask, geometry: structuredClone(demoGeometry), task: idle, planning: idle,
-        priorityIds: [], completedIds: [], selectedStrategy: null, reference: { status: "idle" } });
+        priorityIds: [], completedIds: [], adoptedStrategy: null, planningRequest: null, ...invalidRisk, riskInput: { wind: "", unknown: false }, reference: { status: "idle" } });
     },
   }));
   // New detection/reset invalidates every route based on the previous obstacle snapshot.
@@ -140,15 +181,15 @@ export function createWorkspace(services = defaultServices, environment = create
     unsubscribe();
     unsubscribe = environment.subscribe((next, previous) => {
     if (next.status !== previous.status || next.result !== previous.result) {
-      planningVersion++;
-      store.setState({ planning: idle, selectedStrategy: null });
+      planningVersion++; riskVersion++;
+      store.setState({ planning: idle, adoptedStrategy: null, planningRequest: null, ...invalidRisk });
     }
     });
   };
   connect();
   return {
     store, environment, connect,
-    dispose: () => { taskVersion++; planningVersion++; referenceVersion++; unsubscribe(); },
+    dispose: () => { taskVersion++; planningVersion++; riskVersion++; referenceVersion++; unsubscribe(); },
   };
 }
 

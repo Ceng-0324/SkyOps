@@ -19,7 +19,7 @@ from urllib.request import urlopen
 def main() -> int:
     """Start the real API on an ephemeral port and exercise the frontend client/store."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workspace", action="store_true", help="Exercise the F01–F03 workspace")
+    parser.add_argument("--workspace", action="store_true", help="Exercise the F01–F04 workspace")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     with socket.socket() as listener, tempfile.TemporaryFile(mode="w+") as log:

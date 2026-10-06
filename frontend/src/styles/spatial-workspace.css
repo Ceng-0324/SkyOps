@@ -50,8 +50,8 @@
 .ws-icon:hover { background: #2b3b4b; }
 .ws-task-panel { grid-area: 2/2/4/3; position: relative; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #435263; background: var(--ws-panel); z-index: 10; }
 .ws-collapsed .ws-task-panel { visibility: hidden; }
-.ws-tabs { flex: none; display: flex; gap: 24px; align-items: center; height: 50px; border-bottom: 1px solid var(--ws-line); padding: 0 24px; }
-.ws-tabs button { display: flex; gap: 8px; align-items: center; height: 100%; font-size: 12px; color: #a8b8ca; }
+.ws-tabs { flex: none; display: flex; gap: 0; justify-content: space-between; align-items: center; height: 50px; border-bottom: 1px solid var(--ws-line); padding: 0 24px; }
+.ws-tabs button { display: flex; gap: 5px; align-items: center; height: 100%; font-size: 12px; color: #a8b8ca; }
 .ws-tabs button[aria-current] { border-bottom: 2px solid var(--ws-accent); color: #a8dfe7; }
 .ws-panel-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .ws-section { padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }

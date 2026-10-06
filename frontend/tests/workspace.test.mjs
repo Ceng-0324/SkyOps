@@ -64,9 +64,9 @@ test("planning waits for parsed task and successful detection; selection only ac
   await w.store.getState().generate(); assert.equal(calls, 0);
   await w.store.getState().parse(); await w.store.getState().generate(); assert.equal(calls, 0);
   await ready(w); await w.store.getState().generate(); assert.equal(calls, 1);
-  assert.equal(w.store.getState().selectedStrategy, "coverage");
-  w.store.getState().selectStrategy("missing"); assert.equal(w.store.getState().selectedStrategy, "coverage");
-  w.store.getState().selectStrategy("focused_observation"); assert.equal(w.store.getState().selectedStrategy, "focused_observation");
+  assert.equal(w.store.getState().adoptedStrategy, null);
+  w.store.getState().adoptStrategy("missing"); assert.equal(w.store.getState().adoptedStrategy, null);
+  w.store.getState().adoptStrategy("focused_observation"); assert.equal(w.store.getState().adoptedStrategy, "focused_observation");
   w.dispose();
 });
 test("clarification does not become a plannable task", async () => {
@@ -83,7 +83,7 @@ for (const mutation of ["task", "geometry", "detection", "completion", "reset"])
     if (mutation === "completion") w.store.getState().setTaskFlag("completed", "a", true);
     if (mutation === "reset") w.store.getState().reset();
     pending.resolve(result()); await work;
-    assert.equal(w.store.getState().planning.status, "idle"); assert.equal(w.store.getState().selectedStrategy, null); w.dispose();
+    assert.equal(w.store.getState().planning.status, "idle"); assert.equal(w.store.getState().adoptedStrategy, null); w.dispose();
   });
 }
 test("late task success and failure cannot overwrite an edited input", async () => {

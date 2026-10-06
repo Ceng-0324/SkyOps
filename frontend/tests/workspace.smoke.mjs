@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorkspace, createCandidates, DEFAULT_INCIDENT_EVENT } from "../node_modules/.tmp/workspace-tests/workspace.mjs";
 
-test("real F01 → F02 → F03 supports task dependencies, route selection, invalidation and reference views", async () => {
+test("real F01 → F02 → F03 → F04 supports task dependencies, route selection, invalidation and reference views", async () => {
   const w = createWorkspace();
   try {
     await w.store.getState().parse();
@@ -19,8 +19,20 @@ test("real F01 → F02 → F03 supports task dependencies, route selection, inva
     const data = w.store.getState().planning.data;
     assert.equal(data.status, "candidates"); assert.equal(data.candidates.length, 3);
     assert.ok(data.candidates.every(c => c.status === "feasible" && c.score && c.path));
-    w.store.getState().selectStrategy("focused_observation");
-    assert.equal(w.store.getState().selectedStrategy, "focused_observation");
+    w.store.getState().adoptStrategy("focused_observation");
+    assert.equal(w.store.getState().adoptedStrategy, "focused_observation");
+    w.store.getState().setRiskInput({ wind: "8", unknown: false });
+    await w.store.getState().simulateRisk();
+    assert.equal(w.store.getState().risk.status, "success", w.store.getState().risk.error);
+    assert.equal(w.store.getState().risk.data.recommended_response, "pause_for_review");
+    w.store.getState().setRiskInput({ wind: "7", unknown: false });
+    assert.equal(w.store.getState().risk.status, "idle");
+    await w.store.getState().simulateRisk();
+    assert.equal(w.store.getState().risk.status, "success", w.store.getState().risk.error);
+    assert.equal(w.store.getState().risk.data.recommended_response, "continue_original");
+    w.store.getState().setRiskInput({ wind: "", unknown: true });
+    await w.store.getState().simulateRisk();
+    assert.equal(w.store.getState().risk.data.status, "needs_clarification");
     await w.store.getState().loadReference(DEFAULT_INCIDENT_EVENT);
     assert.equal(w.store.getState().reference.status, "ready");
     const blocked = await createCandidates({ raw_user_input: task.raw_input, scenario_id: data.scenario_id,
